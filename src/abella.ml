@@ -580,7 +580,8 @@ let rec process () =
           ensure_finalized_specification () ;
           write_compilation () ;
           if !annotate then fprintf !out "</pre>\n%!" ;
-          exit 0
+          raise (Failure "eof")
+          (* exit 0 *)
         end
     | Parsing.Parse_error ->
         eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
