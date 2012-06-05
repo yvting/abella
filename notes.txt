@@ -1,3 +1,4 @@
+May 24th, 2012
 * The term uses De Brujin index for bounded varaibles (both in term and metaterm). That is 'DB' constructor is for bounded variables. 'Var' constructor is for free variables. The abstraction 'Lam' does not refer to bounded variables because there is no need to have them in De Brujin form 
 * 'Susp' constructor for term is a suspended substitution. 
 * 'hnorm' normalize a lambda term into head normal form (that is
@@ -6,3 +7,48 @@ the head is always a 'Var' or 'DB' term).
 * 'observe' and 'hnorm' take care of the all the pointers and suspended substitution. No need to worry about them once these
 functions are applied on terms.
 * Constant 'Var's include all the logical constants ("=>", "pi", "sigma", etc) and the constants in the signatures files('.sig' files).
+
+May 25th, 2012
+* a well formed context consists of 
+   1. elements of type 'o'
+   2. a head element of type 'olist' and a tail consisting of
+    elements of type 'o'
+
+May 27th, 2012
+* variables are used in form of referrences in terms (e.g., 'Var of var',
+'Ptr of ptr'). Different referrences may refer to the same variable.
+Even the 'var' constructor create a reference as follows:
+
+    Ptr (ref (V { name=name ; ts=ts ; tag=tag ; ty=ty }))
+
+* 'used' is an associated list containing pairs of 'name of variable' 
+(which is a string) and 'refernces of variable' (which is a variable ref).
+
+* In 'term.ml',
+  - Given a name and a 'used' list, 'fresh_name' function creates a new
+    name which does not conflict with the names in 'used' (and has the same
+    base name as the given name)
+  - 'fresh_wrt' add a new name/var pair to the 'used' list.
+
+* In 'metaterm.ml',
+  - 'fresh_alist' creates from a list of name/type pairs a list of new 
+    variables which are added into the given 'used' list. It also returns 
+    the map from the old names to the new variables.
+  - 'alist' in 'metaterms.ml' are in same form as lists created 
+    from 'fresh_alist' (i.e., it is a mapping from old names to
+    the new variables).
+  - 'replace_metaterm_vars' takes an 'alist' and a metaterm. A new metaterm
+    is returned by substituting every variable in 'alist' by the 
+    corresponding term. It also perform the necessary renaming of binders
+    to avoid capturing free variables by binders. It is worth to mention
+    how this is done when a 'Binding' metaterm is processed.
+      # First the pairs in 'alist' with the same names as in binders are
+        removed from 'alist' to get a new 'alist'. Since they are never 
+        going to be referred by the body of 'Binding'.
+      # get the 'used' list from the new 'alist'
+      # 'fresh_alist' is applied to binders and 'used' to get a mapping
+        from old binders to the new variables. This guaranteed that 
+        varibles in 'used' are not captured by binders. 
+      # The names of new variables are used to create new binders. 
+        The 'alist' is augmented with the result mapping of 
+        'fresh_alist' which is used to replace the variables of the body.
