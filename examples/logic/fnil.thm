@@ -1,0 +1,244 @@
+% Cut-admissibility for focused negative intuitionistic logic.
+%
+% This proof system is also known as uniform proofs (Miller,Nadathur,
+% Pfenning) and LJT (Curien,Herbelin).
+% 
+% Author  : Kaustuv Chaudhuri <kaustuv.chaudhuri@inria.fr>
+% Created : Fri Jun  8 08:46:46 CEST 2012
+
+% Reasoning on multisets
+
+% The definition (remove G A D) asserts that G is D extended with A.
+Define remove : olist -> o -> olist -> prop by
+  remove (A :: G) A G
+; remove (B :: G) A (B :: D) := remove G A D.
+
+% If G is an extension of D, then all members of D are also members of G.
+Theorem remove_incl :
+  forall G D A B, remove G A D -> member B D -> member B G.
+induction on 1. intros. case H1.
+  search.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+% If G is D extended with A, then any member of G is either A or a
+% member of D.
+Theorem remove_charac :
+  forall G A D B, remove G A D -> member B G -> A = B \/ member B D.
+induction on 1. intros. case H1 (keep).
+  case H2.
+    search.
+    search.
+  case H2.
+    search.
+    apply IH to H3 H4. case H5.
+      search.
+      search.
+
+% Types of formulas and terms
+Kind fm, tm type.
+
+% Terms are left abstract, while formulas have the following constructors
+Type atm tm -> fm.
+Type and fm -> fm -> fm.
+Type top fm.
+Type imp fm -> fm -> fm.
+Type all (tm -> fm) -> fm.
+
+% Contexts are lists of formulas, but instead of defining a type of
+% formula lists, we just reuse the olist type and keep things of
+% the form ($fm A) in them.  In a polymorphically typed extension
+% of Abella, we can avoid this hack.
+Type $fm fm -> o.
+
+% We will need to induct on the structure of formulas, so we write
+% an inductive definition of all formulas.
+Define is_fm : fm -> prop by
+  is_fm (atm A)
+; is_fm (and A B) := is_fm A /\ is_fm B
+; is_fm top
+; is_fm (imp A B) := is_fm A /\ is_fm B
+; is_fm (all A)   := forall x, is_fm (A x).
+
+%% The following is the instantiation theorem for the above
+%% definition assuming that the final case was a nabla instead
+%% of a forall. Unfortunately, in abella, we cannot use nabla
+%% here because there is no way in Abella to prove that it is
+%% height-preserving. In other words, if we have a hypothesis
+%% of the form
+%%
+%%     H1 : is_fm (A n)*
+%%
+%% (note the inductive restriction), and we say:
+%%
+%%     apply inst_is_fm to H1 with x = t
+%%
+%% then we would get
+%%
+%%    H2 : is_fm (A t)
+%%
+%% and not
+%%
+%%    H2 : is_fm (A t)*
+%%
+%% Therefore, any proof attempt by induction on the structure
+%% of formulas will fail.
+%%
+%% Theorem inst_is_fm :
+%%    forall x A, nabla (n:tm), is_fm (A n) -> is_fm (A x).
+%% induction on 1. intros. case H1.
+%%   search.
+%%   apply IH to H2 with x = x. apply IH to H3 with x = x. search.
+%%   search.
+%%   apply IH to H2 with x = x. apply IH to H3 with x = x. search.
+%%   apply IH to H2 with x = x. search.
+
+% The focused sequent calculus consists of two phases: async and sync
+%
+% sync G A P   stands for    G ; [A] |- P     (A under focus on the left)
+% async G A    stands for    G |- A 
+Define
+  async : olist       -> fm -> prop,
+  sync  : olist -> fm -> tm -> prop
+by
+  async G (atm P)    := exists A, member ($fm A) G /\ sync G A P
+
+; async G (and A B)  := async G A /\ async G B
+; async G top
+; async G (imp A B)  := async ($fm A :: G) B
+; async G (all A)    := nabla x, async G (A x)
+
+; sync G (atm P) P
+; sync G (and A B) P := sync G A P
+; sync G (and A B) P := sync G B P
+; sync G (imp A B) P := async G A /\ sync G B P
+; sync G (all A) P   := exists t, sync G (A t) P.
+
+% Note: the third argument to sync always represents an atom.
+% This is because the atomic formula P(t1, ..., tn) is represented as
+% (atm (P t1 ... tn)), where P has type (tm -> ... -> tm -> tm).
+
+% The main weakening lemmas. Note that we do not need to use the fact
+% that weakening is height-preserving in the proof of cut-admissibility.
+% This is fortunate because otherwise the sync and async judgements
+% would need to be extended with an auxiliary height argument which
+% could then be used for induction instead.
+Theorem $weakening :
+   (forall G D A C, async D C -> remove G A D -> async G C)
+/\ (forall G D A B P, sync D B P -> remove G A D -> sync G B P).
+induction on 1 1. split.
+  intros. case H1 (keep).
+    apply IH1 to H4 _ with A = A.
+     apply remove_incl to H2 H3. search.
+    apply IH to H3 H2. apply IH to H4 H2. search.
+    search.
+    assert remove ($fm A1 :: G) A ($fm A1 :: D).
+     apply IH to H3 H4. search.
+    apply IH to H3 H2. search.
+  intros. case H1.
+    search.
+    apply IH1 to H3 H2. search.
+    apply IH1 to H3 H2. search.
+    apply IH to H3 H2.
+     apply IH1 to H4 H2. search.
+    apply IH1 to H3 H2. search.
+
+Split $weakening as weakening_async, weakening_sync.
+
+Theorem member_inst :
+   forall x A G, nabla (n:tm), member (A n) (G n) -> member (A x) (G x).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2 with x = x. search.
+
+% The instantiation lemma
+Theorem $inst :
+   (forall x G C, nabla (n:tm), async (G n) (C n) -> async (G x) (C x))
+/\ (forall x G A P, nabla (n:tm), sync (G n) (A n) (P n) -> sync (G x) (A x) (P x)).
+induction on 1 1. split.
+  intros. case H1.
+    apply IH1 to H3 with x = x.
+     apply member_inst to H2 with x = x.
+     search.
+    apply IH to H2 with x = x.
+     apply IH to H3 with x = x. search.
+    search.
+    apply IH to H2 with x = x. search.
+    apply IH to H2 with x = x. search.
+  intros. case H1.
+    search.
+    apply IH1 to H2 with x = x. search.
+    apply IH1 to H2 with x = x. search.
+    apply IH to H2 with x = x.
+     apply IH1 to H3 with x = x. search.
+    apply IH1 to H2 with x = x. search.
+    
+Split $inst as inst_async, inst_sync.
+
+% The main cut-admissibility theorem.
+Theorem $cut :
+   (forall G D A C, is_fm A -> 
+     async D A -> remove G ($fm A) D -> async G C  -> async D C)
+/\ (forall G D A B P, is_fm A -> 
+     async D A -> remove G ($fm A) D -> sync G B P -> sync D B P)
+/\ (forall G A P, is_fm A -> 
+     async G A ->                       sync G A P -> async G (atm P)).
+% We proceed by nested induction on:
+%
+%  - the structure of the cut-formula, then
+%  - the structure of the container derivation (i.e., the derivation
+%     that contains the cut-formula as a hypothesis).
+induction on 1 1 1.
+induction on 4 4 3. split.
+  intros. case H4 (keep).
+    apply remove_charac to H3 H5. case H7.
+      case H1 (keep).
+        case H6. search.
+        case H6.
+          apply IH4 to H1 H2 H3 H10.
+           case H2. apply IH2 to H8 H12 H11. search.
+          apply IH4 to H1 H2 H3 H10.
+           case H2. apply IH2 to H9 H13 H11. search.
+        case H6.
+        case H6.
+         apply IH3 to H1 H2 H3 H10.
+         apply IH4 to H1 H2 H3 H11.
+         case H2 (keep).
+         apply IH to H8 H12 _ H14.
+         apply IH2 to H9 H15 H13. search.
+        case H6.
+         apply IH4 to H1 H2 H3 H9.
+         case H2. apply inst_async to H11 with x = t.
+          apply H8 with x = t.
+          apply IH2 to H13 H12 H10. search.
+      apply IH4 to H1 H2 H3 H6. search.
+    apply IH3 to H1 H2 H3 H5. 
+     apply IH3 to H1 H2 H3 H6. search.
+    search.
+    assert remove ($fm A1 :: G) ($fm A) ($fm A1 :: D).
+     apply weakening_async to H2 _ with G = ($fm A1 :: D).
+     apply IH3 to H1 H7 H6 H5. search.
+    apply IH3 to H1 H2 H3 H5. search.
+  intros. case H4 (keep).
+    search.
+    apply IH4 to H1 H2 H3 H5. search.
+    apply IH4 to H1 H2 H3 H5. search.
+    apply IH3 to H1 H2 H3 H5.
+     apply IH4 to H1 H2 H3 H6. search.
+    apply IH4 to H1 H2 H3 H5. search.
+  intros. case H3 (keep).
+    search.
+    case H1 (keep). case H2 (keep).
+     apply IH2 to H5 H7 H4. search.
+    case H1 (keep). case H2 (keep).
+     apply IH2 to H6 H8 H4. search.
+    case H1 (keep). case H2 (keep).
+     apply IH to H6 H4 _ H8.
+     apply IH2 to H7 H9 H5. search.
+    case H1 (keep). case H2 (keep).
+     apply H5 with x = t.
+     apply inst_async to H6 with x = t.
+     apply IH2 to H7 H8 H4. search.
+
+Split $cut as cut, cut_commutative, cut_principal.
