@@ -286,6 +286,8 @@ let fresh_alist ~used ~tag tids =
                   (x, fresh))
       tids
 
+(* raise ty over the appropriate subset of support,
+   return a tuple of raised type and the support that is raised over *)
 let raise_type ~sr support ty =
   let rsupport =
     List.filter (fun x -> Subordination.query sr (tc [] x) ty) support
@@ -293,6 +295,12 @@ let raise_type ~sr support ty =
   let rtys = List.map (tc []) rsupport in
     (tyarrow rtys ty, rsupport)
 
+(* get a list of fresh variables with 'id's in 'tids' and types
+   raised over support. The fresh variables are not in used. 
+   Return a tuple whose first element is a dictionary from the 'id's
+   in 'tids' to the application of fresh vars to supports and whose
+   second element is a list of fresh vars
+ *)
 let fresh_raised_alist ~used ~sr ~tag ~support tids =
   let ids, tys = List.split tids in
   let rtys, rsupports = List.split (List.map (raise_type ~sr support) tys) in

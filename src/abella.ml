@@ -271,6 +271,7 @@ let import filename =
                    check_noredef ids;
                    check_defs ids defs ;
                    add_global_consts idtys ;
+                   List.iter (Printf.printf "defid:'%s'") ids;
                    add_defs ids Inductive defs ;
              | CCoDefine(idtys, defs) ->
                  let ids = List.map fst idtys in
