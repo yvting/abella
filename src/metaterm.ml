@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Term
 open Extensions
 open Format
@@ -61,9 +62,9 @@ let meta_or a b = Or(a, b)
 let meta_and a b = And(a, b)
 let pred p = Pred(p, Irrelevant)
 
-let propty = tybase "prop"
+let propty = tybase prop_id
 
-let member_const = Term.const "member" (tyarrow [oty; olistty] propty)
+let member_const = Term.const member_id (tyarrow [oty; olistty] propty)
 
 let member e ctx =
   pred (app member_const [e; ctx])
@@ -79,7 +80,7 @@ let restriction_to_string r =
     | Irrelevant -> ""
 
 let bindings_to_string ts =
-  String.concat " " (List.map fst ts)
+  String.concat " " (List.map (fst >> id_to_str) ts)
 
 let priority t =
   match t with
@@ -217,7 +218,7 @@ let map_preds f term =
   in
     aux term
 
-let is_imp t = is_head_name "=>" t
+let is_imp t = is_head_name imp_id t
 
 let extract_imp t =
   match observe (hnorm t) with
@@ -228,7 +229,7 @@ let move_imp_to_context obj =
   let a, b = extract_imp obj.term in
     {context = Context.add a obj.context ; term = b}
 
-let is_pi t = is_head_name "pi" t
+let is_pi t = is_head_name pi_id t
 
 let extract_pi t =
   match observe (hnorm t) with
@@ -381,28 +382,29 @@ let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
 
-let fresh_nominals_by_list tys used_names =
+let fresh_nominals_by_list ns tys used_names =
   let p = prefix Nominal in
   let result = ref [] in
   let get_name () =
     let n = ref 1 in
-      while List.mem (p ^ (string_of_int !n)) (!result @ used_names) do
+    let unames = List.map id_to_str (!result @ used_names) in
+      while List.mem (p ^ (string_of_int !n)) unames do
         incr n
       done ;
       p ^ (string_of_int !n)
   in
     for i = 1 to List.length tys do
-      result := !result @ [get_name()] ;
+      result := !result @ [Id (get_name(), ns)] ;
     done ;
     List.map2 nominal_var !result tys
 
-let fresh_nominals tys t =
+let fresh_nominals ns tys t =
   let used_vars = find_vars Nominal (collect_terms t) in
   let used_names = List.map (fun v -> v.name) used_vars in
-    fresh_nominals_by_list tys used_names
+    fresh_nominals_by_list ns tys used_names
 
-let fresh_nominal ty t =
-  match fresh_nominals [ty] t with
+let fresh_nominal ns ty t =
+  match fresh_nominals ns [ty] t with
     | [n] -> n
     | _ -> assert false
 
@@ -410,7 +412,7 @@ let replace_pi_with_nominal obj =
   let abs = extract_pi obj.term in
     match tc [] abs with
       | Ty(ty::_, _) ->
-          let nominal = fresh_nominal ty (Obj(obj, Irrelevant)) in
+          let nominal = fresh_nominal reas_ns ty (Obj(obj, Irrelevant)) in
             {obj with term = app abs [nominal]}
       | _ -> assert false
 
@@ -501,7 +503,7 @@ let normalize_nominals t =
            end)
       (metaterm_support t)
   in
-  let nominals = fresh_nominals_by_list (List.map snd shadowed) !used_names in
+  let nominals = fresh_nominals_by_list reas_ns (List.map snd shadowed) !used_names in
   let nominal_alist = List.combine shadowed nominals in
     replace_metaterm_typed_nominals nominal_alist t
 
@@ -511,9 +513,9 @@ let normalize term =
   |> normalize_nominals
   |> normalize_binders []
 
-let make_nabla_alist tids body =
+let make_nabla_alist (tids:(id*ty) list) body =
   let (id_names, id_tys) = List.split tids in
-  let nominals = fresh_nominals id_tys body in
+  let nominals = fresh_nominals reas_ns id_tys body in
     List.combine id_names nominals
 
 (* Error reporting *)

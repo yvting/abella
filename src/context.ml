@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Term
 open Extensions
 open Debug
@@ -64,15 +65,15 @@ let context_to_string ctx =
   in
     aux ctx
 
-let cons = const "::" (tyarrow [oty; olistty] olistty)
-let nil = const "nil" olistty
-let imp = const "=>" (tyarrow [oty; oty] oty)
+let cons = const cons_id (tyarrow [oty; olistty] olistty)
+let nil = const nil_id olistty
+let imp = const imp_id (tyarrow [oty; oty] oty)
 
 let is_nil t =
-  Term.is_head_name "nil" t
+  Term.is_head_name nil_id t
 
 let is_cons t =
-  Term.is_head_name "::" t
+  Term.is_head_name cons_id t
 
 let extract_cons t =
   match observe (hnorm t) with

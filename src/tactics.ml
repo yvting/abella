@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Term
 open Metaterm
 open Unify
@@ -117,7 +118,7 @@ let object_inst t1 n t2 =
   if List.mem n (List.map term_to_name (metaterm_support t1)) then
     map_on_objs (map_obj (replace_term_vars ~tag:Nominal [(n, t2)])) t1
   else
-    failwith ("Did not find " ^ n)
+    failwith ("Did not find " ^ (id_to_str n))
 
 (* Case analysis *)
 
@@ -329,7 +330,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                                      let (rids, rtys) = List.split raised in
                                      let nominals =
                                        (* Want freshness with respect to global support *)
-                                       fresh_nominals rtys (pred (app head global_support))
+                                       fresh_nominals reas_ns rtys (pred (app head global_support))
                                      in
                                      let () = lift_all ~used ~sr nominals in
                                      let head = replace_term_vars (List.combine rids nominals) head in
@@ -519,7 +520,7 @@ let unfold_defs ~mdefs ~ts goal r =
     let (ids, tys) = List.split tids in
       (* Add dummy nominals in case nabla bound variables aren't used *)
     let support =
-      (fresh_nominals_by_list tys (List.map term_to_name support)) @
+      (fresh_nominals_by_list reas_ns tys (List.map term_to_name support)) @
         support
     in
       support
@@ -580,24 +581,24 @@ type witness =
 
 let witness_to_string =
   let bind_to_string (id, t) =
-    id ^ " = " ^ (term_to_string t)
+    (id_to_str id) ^ " = " ^ (term_to_string t)
   in
 
   let rec aux = function
     | WTrue -> "true"
-    | WHyp id -> id
+    | WHyp id -> id_to_str id
     | WLeft w -> "left(" ^ aux w ^ ")"
     | WRight w -> "right(" ^ aux w ^ ")"
     | WSplit(w1, w2) -> "split(" ^ aux w1 ^ ", " ^ aux w2 ^ ")"
     | WIntros(ids, w) ->
-        "intros[" ^ (String.concat ", " ids) ^ "](" ^ aux w ^ ")"
+        "intros[" ^ (String.concat ", " (List.map id_to_str ids)) ^ "](" ^ aux w ^ ")"
     | WExists(binds, w) ->
         "exists[" ^ (String.concat ", " (List.map bind_to_string binds)) ^
           "](" ^ aux w ^ ")"
     | WReflexive -> "reflexive"
     | WUnfold(id, n, ws) ->
         let body = if ws = [] then "" else "(" ^ aux_list ws ^ ")" in
-          id ^ "[" ^ (string_of_int n) ^ "]" ^ body
+          (id_to_str id) ^ "[" ^ (string_of_int n) ^ "]" ^ body
 
   and aux_list ws =
     String.concat ", " (List.map aux ws)
@@ -624,7 +625,12 @@ let assoc_mdefs name alldefs =
     ([], [])
 
 let alist_to_ids alist =
-  List.map term_to_string (List.map snd alist)
+  let term_to_id term =
+    match observe (hnorm term) with
+    | Var v -> v.name
+    | _ -> failwith "alist_to_ids: not a variable"
+  in
+  List.map term_to_id (List.map snd alist)
 
 let satisfies r1 r2 =
   match r1, r2 with
@@ -658,7 +664,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let count = ref 0 in
       fun () ->
         incr count ;
-        "h" ^ (string_of_int !count)
+        Id ("h" ^ (string_of_int !count), reas_ns)
   in
 
   let rec clause_aux n hyps context goal r ts ~sc =
@@ -853,7 +859,7 @@ let apply ?(used_nominals=[]) term args =
           let (nabla_ids, nabla_tys) = List.split nablas in
           (* Add dummy nominals in case nabla bound variables aren't used *)
           let support =
-            (fresh_nominals_by_list nabla_tys
+            (fresh_nominals_by_list reas_ns nabla_tys
                (List.map term_to_name (support @ used_nominals))) @
               support
           in
@@ -875,7 +881,7 @@ let apply ?(used_nominals=[]) term args =
                                    (String.concat ", "
                                       (List.map
                                          (fun (x,n) ->
-                                            x ^ " = " ^ (term_to_string n))
+                                            (id_to_str x) ^ " = " ^ (term_to_string n))
                                          alist))) ;
                           Some (apply_arrow permuted_body args)))
               |> (function

@@ -23,7 +23,7 @@ type sr
 
 val empty : sr
 val query : sr -> ty -> ty -> bool
-val close : sr -> string list -> sr
+val close : sr -> Namespace.id list -> sr
 val update : sr -> ty -> sr
 val ensure : sr -> ty -> unit
-val subordinates : sr -> string -> string list
+val subordinates : sr -> Namespace.id -> Namespace.id list

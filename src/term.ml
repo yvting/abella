@@ -1,4 +1,4 @@
-(****************************************************************************)
+(o****************************************************************************)
 (* An implemention of Higher-Order Pattern Unification                      *)
 (* Copyright (C) 2006-2009 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
 (*                                                                          *)
@@ -19,11 +19,11 @@
 (****************************************************************************)
 
 open Extensions
+open Namespace
 
-type ty = Ty of ty list * string
+type ty = Ty of ty list * id
 
 type tag = Eigen | Constant | Logic | Nominal
-type id = string
 type var = {
   name : id ;
   tag  : tag ;
@@ -254,10 +254,11 @@ let fresh =
         incr varcount ;
         i
 
-let fresh ?(tag=Logic) ts ty =
+let fresh ?(tag=Logic) ns ts ty =
   let i = fresh () in
   let name = (prefix tag) ^ (string_of_int i) in
-    var tag name ts ty
+  let id = Id (name, ns) in
+    var tag id ts ty
 
 let remove_trailing_numbers s =
   Str.global_replace (Str.regexp "[0-9]*$") "" s
@@ -277,9 +278,9 @@ let fresh_name name used =
     else
       name
 
-let fresh_wrt ~ts tag name ty used =
+let fresh_wrt ~ts tag ns name ty used =
   let name = fresh_name name used in
-  let v = var tag name ts ty in
+  let v = var tag (Id (name,ns)) ts ty in
     (v, (name, v)::used)
 
 let term_to_var t =
@@ -342,7 +343,7 @@ let priority x =
     | Found i -> i
 let get_max_priority () = List.length infix
 
-let is_obj_quantifier x = x = "pi" || x = "sigma"
+let is_obj_quantifier x = x = pi_id || x = sigma_id
 
 let is_lam t =
   match observe (hnorm t) with
@@ -365,9 +366,9 @@ let abs_name = "x"
 let ty_to_string ty =
   let rec aux nested ty =
     match ty with
-      | Ty([], bty) -> bty
+      | Ty([], bty) -> id_to_str bty
       | Ty(tys, bty) ->
-          let res = String.concat " -> "(List.map (aux true) tys @ [bty]) in
+          let res = String.concat " -> "(List.map (aux true) tys @ [id_to_str bty]) in
             if nested then parenthesis res else res
   in
     aux false ty
@@ -378,14 +379,15 @@ let term_to_string term =
 (*   let pp_var_ty x ty = (pp_var x) ^ ":" ^ (ty_to_string ty) in *)
   let rec pp pr n term =
     match observe (hnorm term) with
-      | Var v -> v.name
+      | Var v -> id_to_str v.name
           (* ^ ":" ^ (tag2str v.tag) *)
           (* ^ ":" ^ (string_of_int v.ts) *)
           (* ^ ":" ^ (ty_to_string v.ty) *)
       | DB i -> pp_var (n-i+1)
       | App (t,ts) ->
           begin match observe (hnorm t), ts with
-            | Var {name=op; tag=Constant}, [a; b] when is_infix op ->
+            | Var {name; tag=Constant}, [a; b] when is_infix (id_to_str name) ->
+                let op = id_to_str name in
                 let op_p = priority op in
                 let assoc = get_assoc op in
                 let pr_left, pr_right = begin match assoc with
@@ -397,8 +399,9 @@ let term_to_string term =
                   (pp pr_left n a) ^ " " ^ op ^ " " ^ (pp pr_right n b)
                 in
                   if op_p >= pr then res else parenthesis res
-            | Var {name=op; tag=Constant}, [a] when
-                is_obj_quantifier op && is_lam a ->
+            | Var {name; tag=Constant}, [a] when
+                is_obj_quantifier (id_to_str name) && is_lam a ->
+                let op = id_to_str name in
                 let res = op ^ " " ^ (pp 0 n a) in
                   if pr < high_pr then res else parenthesis res
             | _ ->
@@ -463,13 +466,15 @@ let extract_tids test terms =
   |> List.find_all (fun (id, ty) -> test id)
   |> List.unique
 
-let is_question_name str =
+let is_question_name id =
+  let str = id_to_str id in
   str.[0] = '?'
 
 let question_tids terms =
   extract_tids is_question_name terms
 
-let is_capital_name str =
+let is_capital_name id =
+  let str = id_to_str id in
   match str.[0] with
     | 'A'..'Z' -> true
     | _ -> false
@@ -477,7 +482,8 @@ let is_capital_name str =
 let capital_tids terms =
   extract_tids is_capital_name terms
 
-let is_nominal_name str =
+let is_nominal_name id =
+  let str = id_to_str id in
   Str.string_match (Str.regexp "^n[0-9]+$") str 0
 
 let nominal_tids terms =
@@ -510,8 +516,8 @@ let tyarrow tys ty =
 let tybase bty =
   Ty([], bty)
 
-let oty = tybase "o"
-let olistty = tybase "olist"
+let oty = tybase oid
+let olistty = tybase olistid
 
 let rec tc tyctx t =
   match observe (hnorm t) with
@@ -527,14 +533,16 @@ let rec tc tyctx t =
         tyarrow tys (tc (List.rev_app tys tyctx) t)
     | _ -> assert false
 
-let is_tyvar str =
+let is_tyvar id =
+  let str = id_to_str id in
   str.[0] = '?'
 
-let tyvar str =
-  tybase ("?" ^ str)
+let tyvar id =
+  let Id (str, ns) = id in
+  tybase (Id ("?" ^ str, ns))
 
-let fresh_tyvar =
+let fresh_tyvar ns =
   let count = ref 0 in
     fun () ->
       incr count ;
-      tyvar (string_of_int !count)
+      tyvar (Id (string_of_int !count, ns))

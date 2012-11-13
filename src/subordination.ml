@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Term
 open Extensions
 
@@ -34,7 +35,8 @@ let close (graph, closed) atys =
            | [] -> ()
            | xs -> failwith
                (Printf.sprintf "Cannot close %s without closing %s"
-                  aty (String.concat ", " xs)))
+                  (id_to_str aty) (String.concat ", " 
+                                     (List.map id_to_str xs))))
       atys ;
     (graph, closed)
 

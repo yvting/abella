@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Term
 open Typing
 open Metaterm
@@ -51,7 +52,7 @@ type sequent = {
 let sequent = {
   vars = [] ;
   hyps = [] ;
-  goal = termobj (const "placeholder" propty) ;
+  goal = termobj (const placeholder_id propty) ;
   count = 0 ;
   name = "" ;
   next_subgoal_id = 1 ;
@@ -79,11 +80,13 @@ let add_global_consts cs =
 let close_types ids =
   begin match List.minus ids (fst !sign) with
     | [] -> ()
-    | xs -> failwith ("Unknown type(s): " ^ (String.concat ", " xs))
+    | xs -> failwith ("Unknown type(s): " ^ (String.concat ", " 
+                       (List.map id_to_str xs)))
   end ;
-  begin match List.intersect ["o"; "olist"; "prop"] ids with
+  begin match List.intersect [o_id; olist_id; prop_id] ids with
     | [] -> ()
-    | xs -> failwith ("Cannot close " ^ (String.concat ", " xs))
+    | xs -> failwith ("Cannot close " ^ (String.concat ", " 
+                       (List.map id_to_str xs)))
   end ;
   sr := Subordination.close !sr ids
 
@@ -135,7 +138,7 @@ let fresh_hyp_name base =
     sequent.count <- sequent.count + 1 ;
     "H" ^ (string_of_int sequent.count)
   end else
-    fresh_name base (List.map (fun h -> (h.id, ())) sequent.hyps)
+    fresh_name (Id (base, reas_ns)) (List.map (fun h -> (h.id, ())) sequent.hyps)
 
 let normalize_sequent () =
   sequent.goal <- normalize sequent.goal ;

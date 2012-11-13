@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Term
 open Metaterm
 open Extensions
@@ -27,8 +28,8 @@ open Extensions
 type pos = Lexing.position * Lexing.position
 
 type uterm =
-  | UCon of pos * string * ty
-  | ULam of pos * string * ty * uterm
+  | UCon of pos * id * ty
+  | ULam of pos * id * ty * uterm
   | UApp of pos * uterm * uterm
 
 let get_pos t =
@@ -67,7 +68,7 @@ type umetaterm =
 
 (** Type substitutions *)
 
-type tysub = (string * ty) list
+type tysub = (id * ty) list
 
 let rec apply_bind_ty v ty = function
   | Ty(tys, bty) ->
@@ -93,9 +94,9 @@ let tyctx_to_nominal_ctx tyctx =
 
 (** Tables / Signatures *)
 
-type ktable = string list
-type pty = Poly of string list * ty
-type ctable = (string * pty) list
+type ktable = id list
+type pty = Poly of id list * ty
+type ctable = (id * pty) list
 type sign = ktable * ctable
 
 (** Kinds *)
@@ -103,7 +104,7 @@ type sign = ktable * ctable
 let add_types (ktable, ctable) ids =
   List.iter
     (fun id -> if is_capital_name id then
-       failwith ("Types may not begin with a capital letter: " ^ id))
+       failwith ("Types may not begin with a capital letter: " ^ (id_to_str id)))
     ids ;
   (ids @ ktable, ctable)
 
@@ -118,7 +119,7 @@ let kind_check sign (Poly(ids, ty)) =
         if List.mem bty ids || lookup_type sign bty then
           List.iter aux tys
         else
-          failwith ("Unknown type: " ^ bty)
+          failwith ("Unknown type: " ^ (id_to_str bty))
   in
     aux ty
 
@@ -126,13 +127,13 @@ let check_const (ktable, ctable) (id, pty) =
   begin try
     let pty' = List.assoc id ctable in
       if pty <> pty' then
-        failwith ("Constant " ^ id ^ " has inconsistent type declarations")
+        failwith ("Constant " ^ (id_to_str id) ^ " has inconsistent type declarations")
   with
     | Not_found -> ()
   end ;
 
   if is_capital_name id then
-    failwith ("Constants may not begin with a capital letter: " ^ id) ;
+    failwith ("Constants may not begin with a capital letter: " ^ (id_to_str id)) ;
 
   kind_check (ktable, ctable) pty
 
@@ -152,17 +153,18 @@ let lookup_const (_, ctable) id =
   try
     freshen_ty (List.assoc id ctable)
   with
-    | Not_found -> failwith ("Unknown constant: " ^ id)
+    | Not_found -> failwith ("Unknown constant: " ^ (id_to_str id))
 
 (** Pervasive signature *)
 
 let pervasive_sign =
-  (["o"; "olist"; "prop"],
-   [("pi",     Poly(["A"], tyarrow [tyarrow [tybase "A"] oty] oty)) ;
-    ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
-    ("member", Poly([],    tyarrow [oty; olistty] propty)) ;
-    ("::",     Poly([],    tyarrow [oty; olistty] olistty)) ;
-    ("nil",    Poly([],    olistty))])
+  let a_id = Id ("A", spec_ns) in
+  ([o_id; olist_id; prop_id],
+   [(pi_id,     Poly([a_id], tyarrow [tyarrow [tybase a_id] oty] oty)) ;
+    (imp_id,    Poly([],    tyarrow [oty; oty] oty)) ;
+    (member_id, Poly([],    tyarrow [oty; olistty] propty)) ;
+    (cons_id,   Poly([],    tyarrow [oty; olistty] olistty)) ;
+    (nil_id,    Poly([],    olistty))])
 
 let sign_to_tys sign =
   List.filter_map
@@ -243,7 +245,7 @@ let rec contains_tyvar = function
 
 let tid_ensure_fully_inferred (id, ty) =
   if contains_tyvar ty then
-    failwith ("Type not fully determined for " ^ id)
+    failwith ("Type not fully determined for " ^ (id_to_str id))
 
 let term_ensure_fully_inferred t =
   let rec aux t =
@@ -383,9 +385,9 @@ let iter_ty f ty =
 let check_spec_logic_type ty =
   iter_ty
     (fun bty ->
-       if bty = "prop" then
+       if bty = prop_id then
          failwith "Cannot mention type prop in the specification logic" ;
-       if bty = "olist" then
+       if bty = olist_id then
          failwith "Cannot mention type olist in the specification logic")
     ty
 
@@ -393,7 +395,7 @@ let check_spec_logic_quantification_type ty =
   check_spec_logic_type ty ;
   iter_ty
     (fun bty  ->
-        if bty = "o" then
+        if bty = o_id then
           failwith "Cannot quantify over type o in the specification logic")
     ty
 
@@ -401,7 +403,7 @@ let check_pi_quantification ts =
   ignore
     (map_vars
        (fun v ->
-          if v.name = "pi" then
+          if v.name = pi_id then
             match v.ty with
               | Ty([Ty([tau], _)], _) ->
                   check_spec_logic_quantification_type tau
@@ -413,8 +415,9 @@ let replace_underscores head body =
   let used = ref (List.map (fun x -> (x, ())) names) in
   let rec aux t =
     match t with
-      | UCon(p, id, ty) when id = "_" ->
-          let id' = fresh_name "X" !used in
+      | UCon(p, id, ty) when (id_to_str id) = "_" ->
+          let ns = id_to_ns id in
+          let id' = fresh_name (Id ("X",ns)) !used in
             used := (id', ()) :: !used ;
             UCon(p, id', ty)
       | UCon _ -> t
@@ -526,7 +529,7 @@ let umetaterm_to_formatted_string t =
 let check_meta_logic_quantification_type ty =
   iter_ty
     (fun bty ->
-       if bty = "prop" then
+       if bty = prop_id then
          failwith "Cannot quantify over type prop")
     ty
 

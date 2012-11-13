@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Metaterm
 open Term
 open Typing
@@ -35,7 +36,6 @@ type def = metaterm * metaterm
 type defs = def list
 type defs_table = (string, def_type * string list * def list) Hashtbl.t
 
-type id = string
 
 type set_value =
   | Str of string
@@ -153,7 +153,7 @@ let common_command_to_string cc =
 let top_command_to_string tc =
   match tc with
     | Theorem(name, body) ->
-        sprintf "Theorem %s : \n%s" name (umetaterm_to_formatted_string body)
+        sprintf "Theorem %s : \n%s" (id_to_str name) (umetaterm_to_formatted_string body)
     | Define(idtys, udefs) ->
         sprintf "Define %s by \n%s"
           (idtys_to_string idtys) (udefs_to_string udefs) ;

@@ -20,17 +20,17 @@
 
 (* Types *)
 
-type ty = Ty of ty list * string
+type id = Namespace.id
+type ty = Ty of ty list * id
 
 val tyarrow : ty list -> ty -> ty
-val tybase : string -> ty
+val tybase : id -> ty
 val oty : ty
 val olistty : ty
 
 (* Variables *)
 
 type tag = Eigen | Constant | Logic | Nominal
-type id = string
 type var = private {
   name : id ;
   tag  : tag ;
@@ -60,7 +60,7 @@ val observe : term -> rawterm
 (** Creation of terms.
   * There is probably more to come here. *)
 
-val var : tag -> string -> int -> ty -> term
+val var : tag -> id -> int -> ty -> term
 
 val app : term -> term list -> term
 val susp : term -> int -> int -> env -> term
@@ -102,23 +102,23 @@ val add_dummies : env -> int -> int -> env
 val lambda : ty list -> term -> term
 
 (** Abstract [t] over constant or variable named [id]. *)
-val abstract : string -> ty -> term -> term
+val abstract : id -> ty -> term -> term
 
 (** Abella specific additions and changes *)
-val const : ?ts:int -> string -> ty -> term
+val const : ?ts:int -> id -> ty -> term
 val fresh : ?tag:tag -> int -> ty -> term
 val fresh_wrt : ts:int -> tag -> id -> ty ->
                   (id * term) list -> term * (id * term) list
 
-val nominal_var : string -> ty -> term
+val nominal_var : id -> ty -> term
 
 val find_vars : tag -> term list -> var list
 val find_var_refs : tag -> term list -> term list
 val map_vars : (var -> 'a) -> term list -> 'a list
 
 val term_to_var : term -> var
-val term_to_name : term -> string
-val term_to_pair : term -> string * term
+val term_to_name : term -> id
+val term_to_pair : term -> id * term
 
 val has_logic_head : term -> bool
 val has_eigen_head : term -> bool
@@ -132,14 +132,14 @@ val prefix : tag -> string
 val get_used : term list -> (id * term) list
 val is_free : term -> bool
 
-val is_nominal_name : string -> bool
+val is_nominal_name : id -> bool
 val is_nominal : term -> bool
-val fresh_name : string -> (string * 'a) list -> string
+val fresh_name : id -> (id * 'a) list -> id
 val term_head_var : term -> term option
-val is_head_name : string -> term -> bool
-val term_head_name : term -> string
+val is_head_name : id -> term -> bool
+val term_head_name : term -> id
 
-val is_capital_name : string -> bool
+val is_capital_name : id -> bool
 val capital_tids : term list -> (id * ty) list
 val question_tids : term list -> (id * ty) list
 val nominal_tids : term list -> (id * ty) list
@@ -147,6 +147,6 @@ val all_tids : term list -> (id * ty) list
 
 val tc : ty list -> term -> ty
 
-val tyvar : string -> ty
-val is_tyvar : string -> bool
+val tyvar : id -> ty
+val is_tyvar : id -> bool
 val fresh_tyvar : unit -> ty
