@@ -31,3 +31,16 @@ let nil_id = reas_cn_id "nil"
 let prop_id = reas_ty_id "prop"
 let member_id = reas_cn_id "member"
 let placeholder_id = reas_cn_id "placeholder"
+
+let lookup_const name ns ids =
+  let cands = List.filter (fun (Id (str,_)) -> str = name) ids in
+  let rec find_cn = function 
+    | IrrevNs -> raise Not_found
+    | TopNs -> raise Not_found
+    | Namespace (_,pns) as ns ->
+        try
+          List.find (fun (Id (_,cns)) -> cns = ns) cands
+        with Not_found ->
+          find_cn pns
+  in
+  find_cn ns

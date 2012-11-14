@@ -21,7 +21,7 @@ open Namespace
 open Term
 open Extensions
 
-type sr = string Graph.t * string list
+type sr = id Graph.t * id list
 
 let empty = (Graph.empty, [])
 
@@ -49,7 +49,8 @@ let add (graph, closed) a b =
       (graph, closed)
     else
       failwith (Printf.sprintf
-                  "Type %s is closed and cannot be subordinated by %s" b a)
+                  "Type %s is closed and cannot be subordinated by %s"
+                  (id_to_str b) (id_to_str a))
   else
     (Graph.add_arc graph a b, closed)
 
@@ -70,7 +71,7 @@ let ensure (graph, _) ty =
              failwith
                (Printf.sprintf
                   "Type %s cannot be made subordinate to %s without explicit declaration"
-                  (head aty) target))
+                  (id_to_str (head aty)) (id_to_str target)))
         args ;
   in
     aux  ty

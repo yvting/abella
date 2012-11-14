@@ -21,6 +21,7 @@
 open Extensions
 open Namespace
 
+type id = Namespace.id
 type ty = Ty of ty list * id
 
 type tag = Eigen | Constant | Logic | Nominal
@@ -400,7 +401,7 @@ let term_to_string term =
                 in
                   if op_p >= pr then res else parenthesis res
             | Var {name; tag=Constant}, [a] when
-                is_obj_quantifier (id_to_str name) && is_lam a ->
+                is_obj_quantifier name && is_lam a ->
                 let op = id_to_str name in
                 let res = op ^ " " ^ (pp 0 n a) in
                   if pr < high_pr then res else parenthesis res
@@ -473,21 +474,19 @@ let is_question_name id =
 let question_tids terms =
   extract_tids is_question_name terms
 
-let is_capital_name id =
-  let str = id_to_str id in
+let is_capital_name str =
   match str.[0] with
     | 'A'..'Z' -> true
     | _ -> false
 
 let capital_tids terms =
-  extract_tids is_capital_name terms
+  extract_tids (fun id -> is_capital_name (id_to_str id)) terms
 
 let is_nominal_name id =
-  let str = id_to_str id in
-  Str.string_match (Str.regexp "^n[0-9]+$") str 0
+  Str.string_match (Str.regexp "^n[0-9]+$") id 0
 
 let nominal_tids terms =
-  extract_tids is_nominal_name terms
+  extract_tids (fun id -> is_nominal_name (id_to_str id)) terms
 
 let all_tids terms =
   extract_tids (fun _ -> true) terms
@@ -516,8 +515,8 @@ let tyarrow tys ty =
 let tybase bty =
   Ty([], bty)
 
-let oty = tybase oid
-let olistty = tybase olistid
+let oty = tybase o_id
+let olistty = tybase olist_id
 
 let rec tc tyctx t =
   match observe (hnorm t) with

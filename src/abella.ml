@@ -156,7 +156,7 @@ let ensure_wellformed_head t =
         (sprintf "Bad head in definition: %s" (metaterm_to_string t))
 
 let check_defs names defs =
-  List.iter ensure_not_capital names ;
+  List.iter ensure_not_capital (List.map id_to_str names) ;
   List.iter
     (fun (head, body) ->
        ensure_wellformed_head head ;
@@ -316,7 +316,8 @@ let import filename =
 
 let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
-  let ctx = fresh_alist ~tag:Logic ~used:[] fv in
+  let ctx = List.map_fst id_to_str
+      (fresh_alist ~tag:Logic ~used:[] (List.map_fst irrev_id fv)) in
   match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
     | Binding(Metaterm.Exists, fv, q) ->
         let ctx = fresh_alist ~tag:Logic ~used:[] fv in

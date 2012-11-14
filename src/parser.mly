@@ -19,7 +19,9 @@
 
 %{
 
+  open Namespace
   open Typing
+  open Extensions
 
   module Types = Abella_types
 
@@ -29,16 +31,18 @@
     else
       (Parsing.rhs_start_pos i, Parsing.rhs_end_pos i)
 
-  let predefined id =
-    UCon(pos 0, id, Term.fresh_tyvar ())
+  let predefined id ns =
+    UCon(pos 0, id, Term.fresh_tyvar (), ref ns)
 
-  let binop id t1 t2 =
-    UApp(pos 0, UApp(pos 0, predefined id, t1), t2)
+  let binop id ns t1 t2  =
+    UApp(pos 0, UApp(pos 0, predefined id ns, t1), t2)
 
   let nested_app head args =
     List.fold_left
       (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
       head args
+
+  let curr_ns = ref IrrevNs
 
 %}
 
@@ -148,19 +152,19 @@ paid:
 
 contexted_term:
   | context TURN term                    { ($1, $3) }
-  | term                                 { (predefined "nil", $1) }
+  | term                                 { (predefined "nil" reas_cn_ns, $1) }
 
 context:
-  | context COMMA term                   { binop "::" $3 $1 }
+  | context COMMA term                   { binop "::" reas_cn_ns $3 $1 }
   | term                                 { if has_capital_head $1 then
                                              $1
                                            else
-                                             binop "::" $1
-                                               (predefined "nil") }
+                                             binop "::" reas_cn_ns $1
+                                               (predefined "nil" reas_cn_ns) }
 
 term:
-  | term IMP term                        { binop "=>" $1 $3 }
-  | term CONS term                       { binop "::" $1 $3 }
+  | term IMP term                        { binop "=>" spec_cn_ns $1 $3 }
+  | term CONS term                       { binop "::" reas_cn_ns $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
                                              ULam(pos 0, id, ty, $3) }
   | exp exp_list                         { nested_app $1 $2 }
@@ -171,7 +175,7 @@ exp:
                                            let right = snd (pos 3) in
                                              change_pos (left, right) $2 }
   | paid                                 { let (id, ty) = $1 in
-                                             UCon(pos 0, id, ty) }
+                                             UCon(pos 0, id, ty, ref (!curr_ns)) }
 
 exp_list:
   | exp exp_list                         { $1::$2 }
@@ -219,7 +223,7 @@ id_list:
   | id COMMA id_list                     { $1::$3}
 
 ty:
-  | id                                   { Term.tybase $1 }
+  | id                                   { Term.tybase (irrev_id $1) }
   | ty RARROW ty                         { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN                     { $2 }
 
@@ -305,8 +309,8 @@ num_list:
   | NUM                                  { [$1] }
 
 withs:
-  | id EQ term COMMA withs               { ($1, $3) :: $5 }
-  | id EQ term                           { [($1, $3)] }
+  | id EQ term COMMA withs               { (irrev_id $1, $3) :: $5 }
+  | id EQ term                           { [(irrev_id $1, $3)] }
 
 metaterm:
   | TRUE                                 { UTrue }
@@ -367,14 +371,14 @@ top_command:
 
 pure_top_command:
   | THEOREM id COLON metaterm DOT        { Types.Theorem($2, $4) }
-  | DEFINE id_tys BY defs DOT            { Types.Define($2, $4) }
-  | CODEFINE id_tys BY defs DOT          { Types.CoDefine($2, $4) }
+  | DEFINE id_tys BY defs DOT            { Types.Define(List.map_fst reas_cn_id $2, $4) }
+  | CODEFINE id_tys BY defs DOT          { Types.CoDefine(List.map_fst reas_cn_id $2, $4) }
   | QUERY metaterm DOT                   { Types.Query($2) }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
-  | KKIND id_list TYPE DOT               { Types.Kind($2) }
-  | TTYPE id_list ty DOT                 { Types.Type($2, $3) }
-  | CLOSE id_list DOT                    { Types.Close($2) }
+  | KKIND id_list TYPE DOT               { Types.Kind(List.map reas_ty_id $2) }
+  | TTYPE id_list ty DOT                 { Types.Type(List.map reas_cn_id $2, $3) }
+  | CLOSE id_list DOT                    { Types.Close(List.map reas_cn_id $2) }
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
   | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
 

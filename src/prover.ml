@@ -138,8 +138,7 @@ let fresh_hyp_name base =
     sequent.count <- sequent.count + 1 ;
     "H" ^ (string_of_int sequent.count)
   end else
-    id_to_str (fresh_name (irrev_id base)
-      (List.map (fun h -> (irrev_id h.id, ())) sequent.hyps))
+    fresh_name base (List.map (fun h -> (h.id, ())) sequent.hyps)
 
 let normalize_sequent () =
   sequent.goal <- normalize sequent.goal ;
@@ -362,8 +361,9 @@ let inst ?name h ws =
                 let ht = begin try
                   let ntids = metaterm_nominal_tids ht in
                   let nty = List.assoc n ntids in
-                  let ctx = sequent.vars @
-                    (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+                  let ctx = 
+                    List.map_fst id_to_str (sequent.vars @
+                     (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids))
                   in
                   let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t nty in
                   object_inst ht n t
@@ -513,7 +513,8 @@ let type_apply_withs stmt ws =
       (fun (id, t) ->
          try
            let ty = List.assoc id bindings in
-             (id, type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars t ty)
+           let ctx = List.map_fst id_to_str sequent.vars in
+             (id, type_uterm ~sr:!sr ~sign:!sign ~ctx t ty)
          with
            | Not_found -> failwith ("Unknown variable " ^ (id_to_str id) ^ "."))
       ws
@@ -562,7 +563,8 @@ let type_backchain_withs stmt ws =
       (fun (id, t) ->
          try
            let ty = List.assoc id bindings in
-             (id, type_uterm ~sr:!sr ~sign:!sign ~ctx:(nctx @ sequent.vars) t ty)
+           let ctx = List.map_fst id_to_str (nctx @ sequent.vars) in
+             (id, type_uterm ~sr:!sr ~sign:!sign ~ctx t ty)
          with
            | Not_found -> failwith ("Unknown variable " ^ (id_to_str id) ^ "."))
       ws
@@ -758,7 +760,8 @@ let delay_mainline ?name new_hyp detour_goal =
       next_subgoal ()
 
 let assert_hyp ?name term =
-  let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
+  let ctx = List.map_fst id_to_str sequent.vars in
+  let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx term in
     delay_mainline ?name term term
 
 (* Object logic monotone *)
@@ -768,8 +771,8 @@ let monotone h t =
     match ht with
       | Obj(obj, r) ->
           let ntids = metaterm_nominal_tids ht in
-          let ctx = sequent.vars @
-            (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+          let ctx = List.map_fst id_to_str (sequent.vars @
+            (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids))
           in
           let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t olistty in
           let new_obj = { obj with context = Context.normalize [t] } in
@@ -932,8 +935,8 @@ let exists t =
   match sequent.goal with
     | Binding(Metaterm.Exists, (id, ty)::tids, body) ->
         let ntids = metaterm_nominal_tids body in
-        let ctx = sequent.vars @
-          (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+        let ctx = List.map_fst id_to_str (sequent.vars @
+          (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids))
         in
         let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t ty in
         let goal = exists tids (replace_metaterm_vars [(id, t)] body) in
