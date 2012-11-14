@@ -138,7 +138,8 @@ let fresh_hyp_name base =
     sequent.count <- sequent.count + 1 ;
     "H" ^ (string_of_int sequent.count)
   end else
-    (id_to_str (fresh_name (Id (base, reas_tm_ns)) (List.map (fun h -> ((Id (h.id, reas_tm_ns)), ())) sequent.hyps)))
+    id_to_str (fresh_name (irrev_id base)
+      (List.map (fun h -> (irrev_id h.id, ())) sequent.hyps))
 
 let normalize_sequent () =
   sequent.goal <- normalize sequent.goal ;
@@ -772,12 +773,13 @@ let monotone h t =
           in
           let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t olistty in
           let new_obj = { obj with context = Context.normalize [t] } in
+          let x_id = irrev_id "X" in
             delay_mainline
               (Obj(new_obj, r))
-              (Binding(Forall, [("X", oty)],
-                       Arrow(member (Term.const "X" oty)
+              (Binding(Forall, [(x_id, oty)],
+                       Arrow(member (Term.const x_id oty)
                                (Context.context_to_term obj.context),
-                             member (Term.const "X" oty)
+                             member (Term.const x_id oty)
                                t))) ;
       | _ -> failwith
           "Monotone can only be used on hypotheses of the form {...}"
@@ -988,7 +990,7 @@ let permute_nominals ids form =
       (fun id ->
          try
            List.assoc id support_alist
-         with Not_found -> nominal_var id (tybase ""))
+         with Not_found -> nominal_var id (tybase (irrev_id "")))
       ids
   in
   let result = Tactics.permute_nominals perm term in

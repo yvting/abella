@@ -1,4 +1,4 @@
-(o****************************************************************************)
+(****************************************************************************)
 (* An implemention of Higher-Order Pattern Unification                      *)
 (* Copyright (C) 2006-2009 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
 (*                                                                          *)
@@ -254,10 +254,10 @@ let fresh =
         incr varcount ;
         i
 
-let fresh ?(tag=Logic) ns ts ty =
+let fresh ?(tag=Logic) ts ty =
   let i = fresh () in
   let name = (prefix tag) ^ (string_of_int i) in
-  let id = Id (name, ns) in
+  let id = irrev_id name in
     var tag id ts ty
 
 let remove_trailing_numbers s =
@@ -278,9 +278,9 @@ let fresh_name name used =
     else
       name
 
-let fresh_wrt ~ts tag ns name ty used =
+let fresh_wrt ~ts tag name ty used =
   let name = fresh_name name used in
-  let v = var tag (Id (name,ns)) ts ty in
+  let v = var tag (irrev_id name) ts ty in
     (v, (name, v)::used)
 
 let term_to_var t =
@@ -541,8 +541,8 @@ let tyvar id =
   let Id (str, ns) = id in
   tybase (Id ("?" ^ str, ns))
 
-let fresh_tyvar ns =
+let fresh_tyvar =
   let count = ref 0 in
     fun () ->
       incr count ;
-      tyvar (Id (string_of_int !count, ns))
+      tyvar (irrev_id (string_of_int !count))

@@ -158,7 +158,7 @@ let lookup_const (_, ctable) id =
 (** Pervasive signature *)
 
 let pervasive_sign =
-  let a_id = Id ("A", type_var_ns) in
+  let a_id = irrev_id "A" in
   ([o_id; olist_id; prop_id],
    [(pi_id,     Poly([a_id], tyarrow [tyarrow [tybase a_id] oty] oty)) ;
     (imp_id,    Poly([],    tyarrow [oty; oty] oty)) ;

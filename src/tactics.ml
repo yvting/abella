@@ -330,7 +330,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                                      let (rids, rtys) = List.split raised in
                                      let nominals =
                                        (* Want freshness with respect to global support *)
-                                       fresh_nominals reas_tm_ns rtys (pred (app head global_support))
+                                       fresh_nominals rtys (pred (app head global_support))
                                      in
                                      let () = lift_all ~used ~sr nominals in
                                      let head = replace_term_vars (List.combine rids nominals) head in
@@ -520,7 +520,7 @@ let unfold_defs ~mdefs ~ts goal r =
     let (ids, tys) = List.split tids in
       (* Add dummy nominals in case nabla bound variables aren't used *)
     let support =
-      (fresh_nominals_by_list reas_tm_ns tys (List.map term_to_name support)) @
+      (fresh_nominals_by_list tys (List.map term_to_name support)) @
         support
     in
       support
@@ -854,7 +854,7 @@ let apply ?(used_nominals=[]) term args =
           let (nabla_ids, nabla_tys) = List.split nablas in
           (* Add dummy nominals in case nabla bound variables aren't used *)
           let support =
-            (fresh_nominals_by_list reas_tm_ns nabla_tys
+            (fresh_nominals_by_list nabla_tys
                (List.map term_to_name (support @ used_nominals))) @
               support
           in

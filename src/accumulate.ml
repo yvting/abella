@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Abella_types
 open Typing
 open Extensions
@@ -69,10 +70,10 @@ let merge_signs signs =
     List.fold_left add_poly_consts (ktable, []) ctables
 
 let add_decl sign = function
-  | SKind(tynames) -> add_types sign tynames
+  | SKind(tynames) -> add_types sign (List.map spec_ty_id tynames)
   | SType(ids, ty) ->
       check_spec_logic_type ty ;
-      add_consts sign (List.map (fun id -> (id, ty)) ids)
+      add_consts sign (List.map (fun id -> (spec_cn_id id, ty)) ids)
 
 let rec get_sign_accum_sigs filename =
   try match H.find sig_cache filename with
@@ -100,9 +101,9 @@ let ensure_no_redefine_keywords name uclauses =
   List.iter
     (fun (head, _) ->
        let id = uterm_head_name head in
-         if id = "pi" || id = "=>" then
+         if id = pi_id || id = imp_id then
            failwith (sprintf "Module %s attempts to re-define keyword %s"
-                       name id))
+                       name (id_to_str id)))
     uclauses
 
 let rec get_named_clauses ~sr filename =

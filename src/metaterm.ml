@@ -382,7 +382,7 @@ let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
 
-let fresh_nominals_by_list ns tys used_names =
+let fresh_nominals_by_list tys used_names =
   let p = prefix Nominal in
   let result = ref [] in
   let get_name () =
@@ -394,17 +394,17 @@ let fresh_nominals_by_list ns tys used_names =
       p ^ (string_of_int !n)
   in
     for i = 1 to List.length tys do
-      result := !result @ [Id (get_name(), ns)] ;
+      result := !result @ [irrev_id (get_name())] ;
     done ;
     List.map2 nominal_var !result tys
 
-let fresh_nominals ns tys t =
+let fresh_nominals tys t =
   let used_vars = find_vars Nominal (collect_terms t) in
   let used_names = List.map (fun v -> v.name) used_vars in
-    fresh_nominals_by_list ns tys used_names
+    fresh_nominals_by_list tys used_names
 
-let fresh_nominal ns ty t =
-  match fresh_nominals ns [ty] t with
+let fresh_nominal ty t =
+  match fresh_nominals [ty] t with
     | [n] -> n
     | _ -> assert false
 
@@ -412,7 +412,7 @@ let replace_pi_with_nominal obj =
   let abs = extract_pi obj.term in
     match tc [] abs with
       | Ty(ty::_, _) ->
-          let nominal = fresh_nominal reas_tm_ns ty (Obj(obj, Irrelevant)) in
+          let nominal = fresh_nominal ty (Obj(obj, Irrelevant)) in
             {obj with term = app abs [nominal]}
       | _ -> assert false
 
@@ -503,7 +503,7 @@ let normalize_nominals t =
            end)
       (metaterm_support t)
   in
-  let nominals = fresh_nominals_by_list reas_tm_ns (List.map snd shadowed) !used_names in
+  let nominals = fresh_nominals_by_list (List.map snd shadowed) !used_names in
   let nominal_alist = List.combine shadowed nominals in
     replace_metaterm_typed_nominals nominal_alist t
 
@@ -515,7 +515,7 @@ let normalize term =
 
 let make_nabla_alist (tids:(id*ty) list) body =
   let (id_names, id_tys) = List.split tids in
-  let nominals = fresh_nominals reas_tm_ns id_tys body in
+  let nominals = fresh_nominals id_tys body in
     List.combine id_names nominals
 
 (* Error reporting *)

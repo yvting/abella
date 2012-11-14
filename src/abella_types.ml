@@ -57,7 +57,7 @@ type top_command =
   | Kind of id list
   | Type of id list * ty
   | Close of id list
-  | SSplit of id * id list
+  | SSplit of string * string list
   | TopCommon of common_command
 
 type compiled =
@@ -177,9 +177,9 @@ let top_command_to_string tc =
         sprintf "Close %s" (id_list_to_string ids)
     | SSplit(id, ids) ->
         if ids <> [] then
-          sprintf "Split %s as %s" (id_to_str id) (id_list_to_string ids)
+          sprintf "Split %s as %s" id (str_list_to_string ids)
         else
-          sprintf "Split %s" (id_to_str id)
+          sprintf "Split %s"  id
     | TopCommon(cc) ->
         common_command_to_string cc
 

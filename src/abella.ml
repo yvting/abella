@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Namespace
 open Term
 open Metaterm
 open Prover
@@ -81,6 +82,7 @@ let type_inference_error (pos, ct) exp act =
         eprintf "Expression is applied to too many arguments\n%!"
 
 let teyjus_only_keywords =
+  List.map irrev_id
   ["closed"; "exportdef"; "import"; "infix"; "infixl"; "infixr"; "local";
    "localkind"; "postfix"; "posfixl"; "prefix"; "prefixr"; "typeabbrev";
    "use_sig"; "useonly"; "sigma"]
@@ -91,7 +93,7 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
     if used_keywords <> [] then
       fprintf !out
         "Warning: The following tokens are keywords in Teyjus: %s\n%!"
-        (String.concat ", " used_keywords)
+        (String.concat ", " (List.map id_to_str used_keywords))
 
 let update_subordination_sign sr sign =
   List.fold_left Subordination.update sr (sign_to_tys sign)
@@ -144,7 +146,7 @@ let ensure_not_capital name =
 
 let ensure_name_contained id ids =
   if not (List.mem id ids) then
-    failwith ("Found stray clause for " ^ id)
+    failwith ("Found stray clause for " ^ (id_to_str id))
 
 let ensure_wellformed_head t =
   match t with
@@ -168,7 +170,7 @@ let check_noredef ids =
   let (_, ctable) = !sign in
     List.iter (
       fun id -> if List.mem id (List.map fst ctable) then
-        failwith (sprintf "%s is already defined" id)
+        failwith (sprintf "%s is already defined" (id_to_str id))
     ) ids
 
 (* Compilation and importing *)
@@ -194,7 +196,7 @@ let compile citem =
   comp_content := citem :: !comp_content
 
 let predicates (ktable, ctable) =
-  List.map fst (List.find_all (fun (_, Poly(_, Ty(_, ty))) -> ty = "o") ctable)
+  List.map fst (List.find_all (fun (_, Poly(_, Ty(_, ty))) -> ty = o_id) ctable)
 
 let write_compilation () =
   marshal !comp_spec_sign ;
@@ -216,14 +218,14 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
     failwith (sprintf "Imported file makes reference to unknown types: %s"
-                (String.concat ", " missing_types))
+                (String.concat ", " (List.map id_to_str missing_types)))
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
   let missing_consts = List.minus imp_ctable ctable in
   let () = if missing_consts <> [] then
     failwith (sprintf "Imported file makes reference to unknown constants: %s"
-                (String.concat ", " (List.map fst missing_consts)))
+                (String.concat ", " (List.map id_to_str (List.map fst missing_consts))))
   in
 
   (* 3. Imported clauses must be a subset of clauses *)
@@ -232,19 +234,19 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   in
   let () = if missing_clauses <> [] then
     failwith (sprintf "Imported file makes reference to unknown clauses for: %s"
-                (String.concat ", " (clauses_to_predicates missing_clauses)))
+                (String.concat ", " (List.map id_to_str (clauses_to_predicates missing_clauses))))
   in
 
   (* 4. Clauses for imported predicates must be subset of imported clauses *)
   let extended_clauses =
     List.minus ~cmp:clause_eq
-      (List.find_all (fun (h, _) -> List.mem (term_head_name h) imp_predicates)
+      (List.find_all (fun (h, _) -> List.mem (id_to_str (term_head_name h)) imp_predicates)
          !clauses)
       imp_spec_clauses
   in
   let () = if extended_clauses <> [] then
     failwith (sprintf "Cannot import file since clauses have been extended for: %s"
-                (String.concat ", " (clauses_to_predicates extended_clauses)))
+                (String.concat ", " (List.map id_to_str (clauses_to_predicates extended_clauses))))
   in
 
     ()
@@ -296,7 +298,7 @@ let import filename =
                               failwith
                                 (Printf.sprintf
                                    "Cannot close %s since it is now subordinate to %s"
-                                   ty (String.concat ", " xs)))
+                                   (id_to_str ty) (String.concat ", " (List.map id_to_str xs))))
                    ty_subords ;
                  close_types (List.map fst ty_subords))
           imp_content
@@ -328,7 +330,7 @@ let query q =
                  fprintf !out "Found solution:\n" ;
                  List.iter
                    (fun (n, v) ->
-                      fprintf !out "%s = %s\n" n (term_to_string v))
+                      fprintf !out "%s = %s\n" (id_to_str n) (term_to_string v))
                    ctx ;
                  fprintf !out "\n%!")
           q
@@ -428,7 +430,7 @@ let rec process_proof name =
           | Rename(hfr, hto) -> rename hfr hto
           | Search(limit) ->
               search ~limit ~interactive:!interactive ~witness ()
-          | Permute(ids, h) -> permute_nominals ids h
+          | Permute(ids, h) -> permute_nominals (List.map irrev_id ids) h
           | Split -> split false
           | SplitStar -> split true
           | Left -> left ()
