@@ -412,7 +412,7 @@ let replace_pi_with_nominal obj =
   let abs = extract_pi obj.term in
     match tc [] abs with
       | Ty(ty::_, _) ->
-          let nominal = fresh_nominal reas_ns ty (Obj(obj, Irrelevant)) in
+          let nominal = fresh_nominal reas_tm_ns ty (Obj(obj, Irrelevant)) in
             {obj with term = app abs [nominal]}
       | _ -> assert false
 
@@ -503,7 +503,7 @@ let normalize_nominals t =
            end)
       (metaterm_support t)
   in
-  let nominals = fresh_nominals_by_list reas_ns (List.map snd shadowed) !used_names in
+  let nominals = fresh_nominals_by_list reas_tm_ns (List.map snd shadowed) !used_names in
   let nominal_alist = List.combine shadowed nominals in
     replace_metaterm_typed_nominals nominal_alist t
 
@@ -515,7 +515,7 @@ let normalize term =
 
 let make_nabla_alist (tids:(id*ty) list) body =
   let (id_names, id_tys) = List.split tids in
-  let nominals = fresh_nominals reas_ns id_tys body in
+  let nominals = fresh_nominals reas_tm_ns id_tys body in
     List.combine id_names nominals
 
 (* Error reporting *)

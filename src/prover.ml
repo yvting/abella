@@ -28,14 +28,14 @@ open Extensions
 
 module H = Hashtbl
 
-type lemmas = (id * metaterm) list
+type lemmas = (string * metaterm) list
 let lemmas : lemmas ref = ref []
 
 type subgoal = unit -> unit
 let subgoals : subgoal list ref = ref []
 
 type hyp = {
-  id : id ;
+  id : string ;
   term : metaterm ;
   mutable abbrev : string option ;
 }
@@ -138,7 +138,7 @@ let fresh_hyp_name base =
     sequent.count <- sequent.count + 1 ;
     "H" ^ (string_of_int sequent.count)
   end else
-    fresh_name (Id (base, reas_ns)) (List.map (fun h -> (h.id, ())) sequent.hyps)
+    (id_to_str (fresh_name (Id (base, reas_tm_ns)) (List.map (fun h -> ((Id (h.id, reas_tm_ns)), ())) sequent.hyps)))
 
 let normalize_sequent () =
   sequent.goal <- normalize sequent.goal ;
@@ -156,15 +156,15 @@ let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (Parser.defs Lexer.token (Lexing.from_string str))
 
 let defs_table : defs_table = H.create 10
-let () = H.add defs_table "member"
+let () = H.add defs_table member_id
   (Inductive,
-   ["member"],
+   [member_id],
    parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
 
 let add_defs ids ty defs =
   List.iter
     (fun id -> if H.mem defs_table id then
-       failwith (id ^ " has already been defined"))
+       failwith ((id_to_str id) ^ " has already been defined"))
     ids ;
   List.iter
     (fun id -> H.add defs_table id (ty, ids, defs))
@@ -267,7 +267,7 @@ let next_subgoal () =
 let vars_to_string () =
   match sequent.vars with
     | [] -> ""
-    | _ -> "Variables: " ^ (String.concat ", " (List.map fst sequent.vars))
+    | _ -> "Variables: " ^ (String.concat ", " (List.map (fst>>id_to_str) sequent.vars))
 
 let format_vars fmt =
   let rec aux fmt xs =
@@ -279,7 +279,8 @@ let format_vars fmt =
     if sequent.vars = [] then
       fprintf fmt "@\n"
     else
-      fprintf fmt "  Variables: @[%a@]@\n" aux sequent.vars
+      fprintf fmt "  Variables: @[%a@]@\n" aux
+	(List.map (fun (id,t) -> (id_to_str id,t)) sequent.vars)
 
 let format_hyp fmt hyp =
   fprintf fmt "%s : " hyp.id ;
@@ -513,7 +514,7 @@ let type_apply_withs stmt ws =
            let ty = List.assoc id bindings in
              (id, type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars t ty)
          with
-           | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
+           | Not_found -> failwith ("Unknown variable " ^ (id_to_str id) ^ "."))
       ws
 
 let partition_obligations obligations =
@@ -562,7 +563,7 @@ let type_backchain_withs stmt ws =
            let ty = List.assoc id bindings in
              (id, type_uterm ~sr:!sr ~sign:!sign ~ctx:(nctx @ sequent.vars) t ty)
          with
-           | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
+           | Not_found -> failwith ("Unknown variable " ^ (id_to_str id) ^ "."))
       ws
 
 let backchain ?(term_witness=ignore) h ws =
@@ -676,10 +677,10 @@ let ensure_is_inductive term =
               | Inductive, _, _ -> ()
               | CoInductive, _, _ -> failwith
                   (sprintf "Cannot induct on %s since it has\
-                          \ been coinductively defined" pname)
+                          \ been coinductively defined" (id_to_str pname))
           with Not_found ->
             failwith (sprintf "Cannot induct on %s since it has\
-                             \ not been defined" pname)
+                             \ not been defined" (id_to_str pname))
           end
     | _ -> failwith "Can only induct on predicates and judgments"
 
@@ -719,10 +720,10 @@ let ensure_is_coinductive p =
         | CoInductive, _, _ -> ()
         | Inductive, _, _ -> failwith
             (sprintf "Cannot coinduct on %s since it has\
-                    \ been inductively defined" pname)
+                    \ been inductively defined" (id_to_str pname))
     with Not_found ->
       failwith (sprintf "Cannot coinduct on %s since it has\
-                       \ not been defined" pname)
+                       \ not been defined" (id_to_str pname))
 
 let coinduction ?name () =
   ensure_is_coinductive (conclusion sequent.goal) ;

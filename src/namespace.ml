@@ -8,20 +8,26 @@ let id_eq (Id (n1,ns1)) (Id (n2,ns2)) = (n1 = n2) && (ns1 = ns2)
 let id_to_str (Id (id,_)) = id
 let id_to_ns (Id (_,ns)) = ns
 
-let spec_ns = Namespace ("spec", TopNs)
-let reas_ns = Namespace ("reas", spec_ns)
+let spec_ty_ns = Namespace ("specty", TopNs)
+let reas_ty_ns = Namespace ("reasty", spec_ty_ns)
+let spec_tm_ns = Namespace ("spectm", TopNs)
+let reas_tm_ns = Namespace ("reastm", spec_tm_ns)
 
-let spec_id str = Id (str, spec_ns)
-let reas_id str = Id (str, reas_ns)
+let type_var_ns = Namespace ("typevar", TopNs)
 
-let o_id = spec_id "o"
-let olist_id = spec_id "olist"
-let imp_id = spec_id "=>"
-let pi_id = spec_id "pi"
-let sigma_id = spec_id "sigma"
+let spec_ty_id str = Id (str, spec_ty_ns)
+let reas_ty_id str = Id (str, reas_ty_ns)
+let spec_tm_id str = Id (str, spec_tm_ns)
+let reas_tm_id str = Id (str, reas_tm_ns)
 
-let cons_id = reas_id "::"
-let nil_id = reas_id "nil"
-let prop_id = reas_id "prop"
-let member_id = reas_id "member"
-let placeholder_id = reas_id "placeholder"
+let o_id = spec_ty_id "o"
+let imp_id = spec_tm_id "=>"
+let pi_id = spec_tm_id "pi"
+let sigma_id = spec_tm_id "sigma"
+
+let olist_id = reas_ty_id "olist"
+let cons_id = reas_tm_id "::"
+let nil_id = reas_tm_id "nil"
+let prop_id = reas_ty_id "prop"
+let member_id = reas_tm_id "member"
+let placeholder_id = reas_tm_id "placeholder"

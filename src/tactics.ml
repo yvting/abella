@@ -330,7 +330,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                                      let (rids, rtys) = List.split raised in
                                      let nominals =
                                        (* Want freshness with respect to global support *)
-                                       fresh_nominals reas_ns rtys (pred (app head global_support))
+                                       fresh_nominals reas_tm_ns rtys (pred (app head global_support))
                                      in
                                      let () = lift_all ~used ~sr nominals in
                                      let head = replace_term_vars (List.combine rids nominals) head in
@@ -520,7 +520,7 @@ let unfold_defs ~mdefs ~ts goal r =
     let (ids, tys) = List.split tids in
       (* Add dummy nominals in case nabla bound variables aren't used *)
     let support =
-      (fresh_nominals_by_list reas_ns tys (List.map term_to_name support)) @
+      (fresh_nominals_by_list reas_tm_ns tys (List.map term_to_name support)) @
         support
     in
       support
@@ -570,11 +570,11 @@ let unfold ~mdefs goal =
 
 type witness =
   | WTrue
-  | WHyp of id
+  | WHyp of string
   | WLeft of witness
   | WRight of witness
   | WSplit of witness * witness
-  | WIntros of id list * witness
+  | WIntros of string list * witness
   | WExists of (id * term) list * witness
   | WReflexive
   | WUnfold of id * int * witness list
@@ -586,12 +586,12 @@ let witness_to_string =
 
   let rec aux = function
     | WTrue -> "true"
-    | WHyp id -> id_to_str id
+    | WHyp id -> id
     | WLeft w -> "left(" ^ aux w ^ ")"
     | WRight w -> "right(" ^ aux w ^ ")"
     | WSplit(w1, w2) -> "split(" ^ aux w1 ^ ", " ^ aux w2 ^ ")"
     | WIntros(ids, w) ->
-        "intros[" ^ (String.concat ", " (List.map id_to_str ids)) ^ "](" ^ aux w ^ ")"
+        "intros[" ^ (String.concat ", " ids) ^ "](" ^ aux w ^ ")"
     | WExists(binds, w) ->
         "exists[" ^ (String.concat ", " (List.map bind_to_string binds)) ^
           "](" ^ aux w ^ ")"
@@ -625,12 +625,7 @@ let assoc_mdefs name alldefs =
     ([], [])
 
 let alist_to_ids alist =
-  let term_to_id term =
-    match observe (hnorm term) with
-    | Var v -> v.name
-    | _ -> failwith "alist_to_ids: not a variable"
-  in
-  List.map term_to_id (List.map snd alist)
+  List.map term_to_string (List.map snd alist)
 
 let satisfies r1 r2 =
   match r1, r2 with
@@ -664,7 +659,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let count = ref 0 in
       fun () ->
         incr count ;
-        Id ("h" ^ (string_of_int !count), reas_ns)
+        ("h" ^ (string_of_int !count))
   in
 
   let rec clause_aux n hyps context goal r ts ~sc =
@@ -715,7 +710,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       | g::gs -> obj_aux n hyps g r ts
           ~sc:(fun w -> obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
 
-  and metaterm_aux n hyps goal ts ~sc =
+  and metaterm_aux n (hyps: (string*metaterm) list) goal ts ~sc =
     let goal = normalize goal in
 
     hyps |> List.iter
@@ -859,7 +854,7 @@ let apply ?(used_nominals=[]) term args =
           let (nabla_ids, nabla_tys) = List.split nablas in
           (* Add dummy nominals in case nabla bound variables aren't used *)
           let support =
-            (fresh_nominals_by_list reas_ns nabla_tys
+            (fresh_nominals_by_list reas_tm_ns nabla_tys
                (List.map term_to_name (support @ used_nominals))) @
               support
           in

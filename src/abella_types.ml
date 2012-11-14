@@ -34,7 +34,7 @@ type udef = umetaterm * umetaterm
 type udefs = udef list
 type def = metaterm * metaterm
 type defs = def list
-type defs_table = (string, def_type * string list * def list) Hashtbl.t
+type defs_table = (id, def_type * id list * def list) Hashtbl.t
 
 
 type set_value =
@@ -48,7 +48,7 @@ type common_command =
   | Quit
 
 type top_command =
-  | Theorem of id * umetaterm
+  | Theorem of string * umetaterm
   | Define of (id * ty) list * udefs
   | CoDefine of (id * ty) list * udefs
   | Import of string
@@ -61,7 +61,7 @@ type top_command =
   | TopCommon of common_command
 
 type compiled =
-  | CTheorem of id * metaterm
+  | CTheorem of string * metaterm
   | CDefine of (id * ty) list * defs
   | CCoDefine of (id * ty) list * defs
   | CImport of string
@@ -70,28 +70,28 @@ type compiled =
   | CClose of (id * id list) list
 
 type command =
-  | Induction of int list * id option
-  | CoInduction of id option
-  | Apply of id * id list * (id * uterm) list * id option
-  | Backchain of id * (id * uterm) list
-  | Cut of id * id * id option
-  | SearchCut of id * id option
-  | Inst of id * (id * uterm) list * id option
-  | Case of id * bool * id option
-  | Assert of umetaterm * id option
+  | Induction of int list * string option
+  | CoInduction of string option
+  | Apply of string * string list * (id * uterm) list * string option
+  | Backchain of string * (id * uterm) list
+  | Cut of string * string * string option
+  | SearchCut of string * string option
+  | Inst of string * (id * uterm) list * string option
+  | Case of string * bool * string option
+  | Assert of umetaterm * string option
   | Exists of uterm
-  | Clear of id list
-  | Abbrev of id * string
-  | Unabbrev of id list
-  | Rename of id * id
-  | Monotone of id * uterm
-  | Permute of id list * id option
+  | Clear of string list
+  | Abbrev of string * string
+  | Unabbrev of string list
+  | Rename of string * string
+  | Monotone of string * uterm
+  | Permute of string list * string option
   | Search of int option
   | Split
   | SplitStar
   | Left
   | Right
-  | Intros of id list
+  | Intros of string list
   | Unfold
   | Skip
   | Abort
@@ -134,12 +134,15 @@ let set_value_to_string v =
     | Int d -> string_of_int d
     | QStr s -> sprintf "%S" s
 
-let id_list_to_string ids =
+let str_list_to_string ids =
   String.concat ", " ids
+
+let id_list_to_string ids =
+  String.concat ", " (List.map id_to_str ids)
 
 let idtys_to_string idtys =
   String.concat ",\t\n"
-    (List.map (fun (id, ty) -> id ^ " : " ^ (ty_to_string ty)) idtys)
+    (List.map (fun (id, ty) -> (id_to_str id) ^ " : " ^ (ty_to_string ty)) idtys)
 
 let common_command_to_string cc =
   match cc with
@@ -153,7 +156,7 @@ let common_command_to_string cc =
 let top_command_to_string tc =
   match tc with
     | Theorem(name, body) ->
-        sprintf "Theorem %s : \n%s" (id_to_str name) (umetaterm_to_formatted_string body)
+        sprintf "Theorem %s : \n%s"  name (umetaterm_to_formatted_string body)
     | Define(idtys, udefs) ->
         sprintf "Define %s by \n%s"
           (idtys_to_string idtys) (udefs_to_string udefs) ;
@@ -174,15 +177,15 @@ let top_command_to_string tc =
         sprintf "Close %s" (id_list_to_string ids)
     | SSplit(id, ids) ->
         if ids <> [] then
-          sprintf "Split %s as %s" id (id_list_to_string ids)
+          sprintf "Split %s as %s" (id_to_str id) (id_list_to_string ids)
         else
-          sprintf "Split %s" id
+          sprintf "Split %s" (id_to_str id)
     | TopCommon(cc) ->
         common_command_to_string cc
 
 let withs_to_string ws =
   String.concat ", "
-    (List.map (fun (x,t) -> x ^ " = " ^ (uterm_to_string t)) ws)
+    (List.map (fun (x,t) -> (id_to_str x) ^ " = " ^ (uterm_to_string t)) ws)
 
 let hn_to_string = function
   | None -> ""
@@ -194,9 +197,9 @@ let command_to_string c =
         sprintf "induction %son %s" (hn_to_string hn)
           (String.concat " " (List.map string_of_int is))
     | CoInduction None -> "coinduction"
-    | CoInduction (Some hn) -> "coinduction " ^ hn
+    | CoInduction (Some hn) -> "coinduction " ^  hn
     | Apply(h, [], [], hn) ->
-        sprintf "apply %s" h
+        sprintf "apply %s"  h
     | Apply(h, hs, [], hn) ->
         sprintf "apply %s%s to %s"
           (hn_to_string hn)
