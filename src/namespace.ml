@@ -9,10 +9,11 @@ type parse_ns =
   | PsReasNs
   | PsInvNs
 
-let id_eq (Id (n1,ns1)) (Id (n2,ns2)) = (n1 = n2) && (ns1 = ns2)
+
 
 let id_to_str (Id (id,_)) = id
 let id_to_ns (Id (_,ns)) = ns
+let ids_to_str ids = String.concat "," (List.map id_to_str ids)
 
 let spec_ty_ns = Namespace ("specty", TopNs)
 let reas_ty_ns = Namespace ("reasty", spec_ty_ns)

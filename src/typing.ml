@@ -28,25 +28,25 @@ open Extensions
 type pos = Lexing.position * Lexing.position
 
 type uterm =
-  | UCon of pos * id ref * ty * parse_ns
+  | UCon of pos * id ref * ty
   | ULam of pos * id * ty * uterm
   | UApp of pos * uterm * uterm
 
 let get_pos t =
   match t with
-    | UCon(p, _, _, _) -> p
+    | UCon(p, _, _) -> p
     | ULam(p, _, _, _) -> p
     | UApp(p, _, _) -> p
 
 let change_pos p t =
   match t with
-    | UCon(_, id, ty, ns) -> UCon(p, id, ty, ns)
+    | UCon(_, id, ty) -> UCon(p, id, ty)
     | ULam(_, id, ty, body) -> ULam(p, id, ty, body)
     | UApp(_, t1, t2) -> UApp(p, t1, t2)
 
 let uterm_head_name t =
   let rec aux = function
-    | UCon(_, {contents=id}, _, _) -> id
+    | UCon(_, {contents=id}, _) -> id
     | UApp(_, h, _) -> aux h
     | ULam _ -> assert false
   in
@@ -121,6 +121,7 @@ let kind_check sign (Poly(ids, ty)) =
         if List.mem bty ids || lookup_type sign bty then
           List.iter aux tys
         else
+          Printf.printf "%s" (ids_to_str (fst sign));
           failwith ("Unknown type: " ^ (id_to_str bty))
   in
     aux ty
@@ -192,7 +193,7 @@ type constraint_info = pos * constraint_type
 type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
 
-let infer_type_and_constraints ~sign tyctx t =
+let infer_type_and_constraints ?(ns=PsReasNs) ~sign tyctx t =
   let eqns = ref [] in
   let add_constraint expected actual pos =
     eqns := (expected, actual, pos) :: !eqns
@@ -200,7 +201,7 @@ let infer_type_and_constraints ~sign tyctx t =
 
   let rec aux tyctx t =
     match t with
-      | UCon(p, ({contents = id} as idref), ty, ns) ->
+      | UCon(p, ({contents = id} as idref), ty) ->
           let ty' =
             begin try
               List.assoc id tyctx
@@ -328,7 +329,7 @@ let unify_constraints eqns =
 let uterms_extract_if test ts =
   let rec aux t =
     match t with
-      | UCon(_, {contents=id}, _, _) -> if test id then [id] else []
+      | UCon(_, {contents=id}, _) -> if test id then [id] else []
       | ULam(_, id, _, t) -> List.remove id (aux t)
       | UApp(_, t1, t2) -> (aux t1) @ (aux t2)
   in
@@ -340,7 +341,7 @@ let uterm_nominals_to_tyctx t =
 let uterm_to_term sub t =
   let rec aux t =
     match t with
-      | UCon(_, {contents=id}, ty, ns) -> const id (apply_sub_ty sub ty)
+      | UCon(_, {contents=id}, ty) -> const id (apply_sub_ty sub ty)
       | ULam(_, id, ty, t) -> abstract id (apply_sub_ty sub ty) (aux t)
       | UApp(_, t1, t2) -> app (aux t1) [aux t2]
   in
@@ -379,7 +380,7 @@ let type_uterm ~sr ~sign ~ctx t expected_ty =
 
 let rec has_capital_head t =
   match t with
-    | UCon(_, {contents=v}, _, _) -> is_capital_name (id_to_str v)
+    | UCon(_, {contents=v}, _) -> is_capital_name (id_to_str v)
     | UApp(_, h, _) -> has_capital_head h
     | _ -> false
 
@@ -422,10 +423,10 @@ let replace_underscores head body =
   let used = ref (List.map (fun x -> (x, ())) names) in
   let rec aux t =
     match t with
-      | UCon(p, {contents=id}, ty, ns) when id = irrev_id "_" ->
+      | UCon(p, {contents=id}, ty) when id = irrev_id "_" ->
           let id' = fresh_name (irrev_id "X") !used in
             used := (id', ()) :: !used ;
-            UCon(p, ref id', ty, ns)
+            UCon(p, ref id', ty)
       | UCon _ -> t
       | ULam(p, id, ty, t) ->
           used := (id, ()) :: !used ;
@@ -472,8 +473,8 @@ let infer_constraints ~sign ~tyctx t =
           let (bty, beqns) = infer_type_and_constraints ~sign tyctx b in
             aeqns @ beqns @ [(aty, bty, (get_pos b, CArg))]
       | UObj(l, g, _) ->
-          let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
-          let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
+          let (lty, leqns) = infer_type_and_constraints ~ns:PsSpecNs ~sign tyctx l in
+          let (gty, geqns) = infer_type_and_constraints ~ns:PsSpecNs ~sign tyctx g in
             leqns @ geqns @ [(olistty, lty, (get_pos l, CArg));
                              (oty, gty, (get_pos g, CArg))]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
@@ -614,6 +615,6 @@ let type_udefs ~sr ~sign udefs =
 
 let rec has_capital_head t =
   match t with
-    | UCon(_, {contents=id}, _, _) -> is_capital_name (id_to_str id)
+    | UCon(_, {contents=id}, _) -> is_capital_name (id_to_str id)
     | ULam _ -> false
     | UApp(_, t, _) -> has_capital_head t

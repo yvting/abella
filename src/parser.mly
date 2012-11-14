@@ -31,24 +31,17 @@
     else
       (Parsing.rhs_start_pos i, Parsing.rhs_end_pos i)
 
-  let predefined id ns =
-    UCon(pos 0, ref (Id (id,IrrevNs)), Term.fresh_tyvar (), ns)
+  let predefined id =
+    UCon(pos 0, ref (Id (id,IrrevNs)), Term.fresh_tyvar ())
 
-  let binop id ns t1 t2  =
-    UApp(pos 0, UApp(pos 0, predefined id ns, t1), t2)
+  let binop id t1 t2  =
+    UApp(pos 0, UApp(pos 0, predefined id, t1), t2)
 
   let nested_app head args =
     List.fold_left
       (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
       head args
 
-  let ns_stack = ref ([PsInvNs]:parse_ns list)
-  let curr_ns = (List.hd (!ns_stack))
-
-  let push_pns ns =
-    ns_stack := (ns::(!ns_stack))
-  let pop_pns =
-    ns_stack := (List.tl (!ns_stack))
 %}
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
@@ -157,19 +150,18 @@ paid:
 
 contexted_term:
   | context TURN term                    { ($1, $3) }
-  | term                                 { (predefined "nil" PsReasNs, $1) }
+  | term                                 { (predefined "nil", $1) }
 
 context:
-  | context COMMA term                   { binop "::" PsReasNs $3 $1 }
+  | context COMMA term                   { binop "::" $3 $1 }
   | term                                 { if has_capital_head $1 then
                                              $1
                                            else
-                                             binop "::" PsReasNs $1
-                                               (predefined "nil" PsReasNs) }
+                                             binop "::" $1 (predefined "nil") }
 
 term:
-  | term IMP term                        { binop "=>" PsSpecNs $1 $3 }
-  | term CONS term                       { binop "::" PsReasNs $1 $3 }
+  | term IMP term                        { binop "=>" $1 $3 }
+  | term CONS term                       { binop "::" $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
                                              ULam(pos 0, irrev_id id, ty, $3) }
   | exp exp_list                         { nested_app $1 $2 }
@@ -180,7 +172,7 @@ exp:
                                            let right = snd (pos 3) in
                                              change_pos (left, right) $2 }
   | paid                                 { let (id, ty) = $1 in
-                                             UCon(pos 0, ref (irrev_id id), ty, (curr_ns)) }
+                                             UCon(pos 0, ref (irrev_id id), ty) }
 
 exp_list:
   | exp exp_list                         { $1::$2 }
@@ -190,12 +182,7 @@ exp_list:
 
 lpsig:
   | sig_header sig_preamble sig_body lpend
-                                         { 
-                                           push_pns PsSpecNs;
-                                           let t = Types.Sig($1, $2, $3) in
-                                           pop_pns;
-                                           t
-                                         }
+                                         { Types.Sig($1, $2, $3) }
 
 sig_header:
   | SIG id DOT                           { $2 }
@@ -211,12 +198,7 @@ sig_body:
 
 lpmod:
   | mod_header mod_preamble mod_body lpend
-                                         {
-                                           push_pns PsSpecNs;
-                                           let t = Types.Mod($1, $2, $3) in
-                                           pop_pns;
-                                           t
-                                         }
+                                         { Types.Mod($1, $2, $3) }
 
 mod_header:
   | MODULE id DOT                        { $2 }
