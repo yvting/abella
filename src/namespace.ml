@@ -4,6 +4,11 @@ type namespace =
   | Namespace of string * namespace
 type id = Id of string * namespace
 
+type parse_ns =
+  | PsSpecNs
+  | PsReasNs
+  | PsInvNs
+
 let id_eq (Id (n1,ns1)) (Id (n2,ns2)) = (n1 = n2) && (ns1 = ns2)
 
 let id_to_str (Id (id,_)) = id
@@ -32,15 +37,24 @@ let prop_id = reas_ty_id "prop"
 let member_id = reas_cn_id "member"
 let placeholder_id = reas_cn_id "placeholder"
 
-let lookup_const name ns ids =
+let get_start_ns = function
+  | PsReasNs, true -> reas_ty_ns
+  | PsReasNs, false -> reas_cn_ns
+  | PsSpecNs, true -> spec_ty_ns
+  | PsSpecNs, false -> spec_cn_ns
+  | _ -> assert false
+
+(* lookup constant *)
+let lookup_const (Id (name,_)) pns ids =
   let cands = List.filter (fun (Id (str,_)) -> str = name) ids in
+  let ns = get_start_ns (pns,false) in 
   let rec find_cn = function 
     | IrrevNs -> raise Not_found
     | TopNs -> raise Not_found
-    | Namespace (_,pns) as ns ->
+    | Namespace (_,par_ns) as ns ->
         try
           List.find (fun (Id (_,cns)) -> cns = ns) cands
         with Not_found ->
-          find_cn pns
+          find_cn par_ns
   in
   find_cn ns

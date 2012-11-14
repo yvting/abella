@@ -101,9 +101,9 @@ let ensure_no_redefine_keywords name uclauses =
   List.iter
     (fun (head, _) ->
        let id = uterm_head_name head in
-         if id = id_to_str pi_id || id = id_to_str imp_id then
+         if id = pi_id || id = imp_id then
            failwith (sprintf "Module %s attempts to re-define keyword %s"
-                       name id))
+                       name (id_to_str id)))
     uclauses
 
 let rec get_named_clauses ~sr filename =

@@ -28,8 +28,8 @@ open Extensions
 type pos = Lexing.position * Lexing.position
 
 type uterm =
-  | UCon of pos * string * ty * namespace ref
-  | ULam of pos * string * ty * uterm
+  | UCon of pos * id ref * ty * parse_ns
+  | ULam of pos * id * ty * uterm
   | UApp of pos * uterm * uterm
 
 let get_pos t =
@@ -46,7 +46,7 @@ let change_pos p t =
 
 let uterm_head_name t =
   let rec aux = function
-    | UCon(_, id, _, _) -> id
+    | UCon(_, {contents=id}, _, _) -> id
     | UApp(_, h, _) -> aux h
     | ULam _ -> assert false
   in
@@ -60,7 +60,7 @@ type umetaterm =
   | UEq of uterm * uterm
   | UObj of uterm * uterm * restriction
   | UArrow of umetaterm * umetaterm
-  | UBinding of binder * (string * ty) list * umetaterm
+  | UBinding of binder * (id * ty) list * umetaterm
   | UOr of umetaterm * umetaterm
   | UAnd of umetaterm * umetaterm
   | UPred of uterm * restriction
@@ -86,10 +86,10 @@ let ids_to_fresh_tyctx ids =
   List.map (fun id -> (id, fresh_tyvar ())) ids
 
 let tyctx_to_ctx tyctx =
-  List.map (fun (id, ty) -> (id, const (irrev_id id) ty)) tyctx
+  List.map (fun (id, ty) -> (id, const id ty)) tyctx
 
 let tyctx_to_nominal_ctx tyctx =
-  List.map (fun (id, ty) -> (id, nominal_var (irrev_id id) ty)) tyctx
+  List.map (fun (id, ty) -> (id, nominal_var id ty)) tyctx
 
 
 (** Tables / Signatures *)
@@ -154,13 +154,13 @@ let freshen_ty (Poly(ids, ty)) =
 
 (* This function contains a hack that
    assigned the correct namespace to a constant after lookup *)
-let lookup_and_reset_const (_, ctable) id ns ns_ref=
+let lookup_and_reset_const (_, ctable) id ns id_ref=
   try
     let rid = lookup_const id ns (List.map fst ctable) in
-    ns_ref := id_to_ns rid;
+    id_ref := rid;
     freshen_ty (List.assoc rid ctable)
   with
-    | Not_found -> failwith ("Unknown constant: " ^ id)
+    | Not_found -> failwith ("Unknown constant: " ^ (id_to_str id))
 
 (** Pervasive signature *)
 
@@ -200,12 +200,12 @@ let infer_type_and_constraints ~sign tyctx t =
 
   let rec aux tyctx t =
     match t with
-      | UCon(p, id, ty, ns) ->
+      | UCon(p, ({contents = id} as idref), ty, ns) ->
           let ty' =
             begin try
               List.assoc id tyctx
             with
-              | Not_found -> lookup_and_reset_const sign id (!ns) ns
+              | Not_found -> lookup_and_reset_const sign id ns idref
             end
           in
             add_constraint ty ty' (p, CArg) ;
@@ -328,20 +328,20 @@ let unify_constraints eqns =
 let uterms_extract_if test ts =
   let rec aux t =
     match t with
-      | UCon(_, id, _, _) -> if test id then [id] else []
+      | UCon(_, {contents=id}, _, _) -> if test id then [id] else []
       | ULam(_, id, _, t) -> List.remove id (aux t)
       | UApp(_, t1, t2) -> (aux t1) @ (aux t2)
   in
     List.unique (List.flatten_map aux ts)
 
 let uterm_nominals_to_tyctx t =
-  ids_to_fresh_tyctx (uterms_extract_if (fun n -> is_nominal_name n) [t])
+  ids_to_fresh_tyctx (uterms_extract_if (fun n -> is_nominal_name (id_to_str n)) [t])
 
 let uterm_to_term sub t =
   let rec aux t =
     match t with
-      | UCon(_, id, ty, ns) -> const (Id (id,!ns)) (apply_sub_ty sub ty)
-      | ULam(_, id, ty, t) -> abstract (irrev_id id) (apply_sub_ty sub ty) (aux t)
+      | UCon(_, {contents=id}, ty, ns) -> const id (apply_sub_ty sub ty)
+      | ULam(_, id, ty, t) -> abstract id (apply_sub_ty sub ty) (aux t)
       | UApp(_, t1, t2) -> app (aux t1) [aux t2]
   in
     aux t
@@ -372,15 +372,14 @@ let type_uterm ~sr ~sign ~ctx t expected_ty =
   let eqns = (expected_ty, ty, (get_pos t, CArg)) :: eqns in
   let sub = unify_constraints eqns in
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
-  let ctx' = List.map (fun (id, t) -> (irrev_id id, t)) ctx in
-  let result = replace_term_vars ctx' (uterm_to_term sub t) in
+  let result = replace_term_vars ctx (uterm_to_term sub t) in
     term_ensure_fully_inferred result ;
     term_ensure_subordination sr result ;
     result
 
 let rec has_capital_head t =
   match t with
-    | UCon(_, v, _, _) -> is_capital_name v
+    | UCon(_, {contents=v}, _, _) -> is_capital_name (id_to_str v)
     | UApp(_, h, _) -> has_capital_head h
     | _ -> false
 
@@ -419,14 +418,14 @@ let check_pi_quantification ts =
        ts)
 
 let replace_underscores head body =
-  let names = uterms_extract_if is_capital_name (head::body) in
+  let names = uterms_extract_if (fun id -> is_capital_name (id_to_str id)) (head::body) in
   let used = ref (List.map (fun x -> (x, ())) names) in
   let rec aux t =
     match t with
-      | UCon(p, id, ty, ns) when id = "_" ->
-          let id' = fresh_name "X" !used in
+      | UCon(p, {contents=id}, ty, ns) when id = irrev_id "_" ->
+          let id' = fresh_name (irrev_id "X") !used in
             used := (id', ()) :: !used ;
-            UCon(p, id', ty, ns)
+            UCon(p, ref id', ty, ns)
       | UCon _ -> t
       | ULam(p, id, ty, t) ->
           used := (id, ()) :: !used ;
@@ -444,7 +443,7 @@ let type_uclause ~sr ~sign (head, body) =
   if has_capital_head head then
     failwith "Clause has flexible head" ;
   let head, body = replace_underscores head body in
-  let cids = uterms_extract_if is_capital_name (head::body) in
+  let cids = uterms_extract_if (fun id -> is_capital_name (id_to_str id)) (head::body) in
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns =
     List.fold_left (fun acc p ->
@@ -454,8 +453,7 @@ let type_uclause ~sr ~sign (head, body) =
   in
   let sub = unify_constraints eqns in
   let ctx = tyctx_to_ctx (apply_sub_tyctx sub tyctx) in
-  let ctx' = List.map (fun (id, t) -> (irrev_id id, t)) ctx in
-  let convert p = replace_term_vars ctx' (uterm_to_term sub p) in
+  let convert p = replace_term_vars ctx (uterm_to_term sub p) in
   let (rhead, rbody) = (convert head, List.map convert body) in
     List.iter term_ensure_fully_inferred (rhead::rbody) ;
     List.iter (term_ensure_subordination sr) (rhead::rbody) ;
@@ -506,7 +504,7 @@ let umetaterm_extract_if test t =
     List.unique (aux t)
 
 let umetaterm_nominals_to_tyctx t =
-  ids_to_fresh_tyctx (umetaterm_extract_if is_nominal_name t)
+  ids_to_fresh_tyctx (umetaterm_extract_if (fun id -> is_nominal_name (id_to_str id)) t)
 
 let umetaterm_to_metaterm sub t =
   let rec aux t =
@@ -520,7 +518,7 @@ let umetaterm_to_metaterm sub t =
       | UArrow(a, b) -> Arrow(aux a, aux b)
       | UBinding(binder, tids, body) ->
           Binding(binder,
-            List.map (fun (id,t) -> (irrev_id id, apply_sub_ty sub t)) tids,
+            List.map (fun (id,t) -> (id, apply_sub_ty sub t)) tids,
             aux body)
       | UOr(a, b) -> Or(aux a, aux b)
       | UAnd(a, b) -> And(aux a, aux b)
@@ -584,8 +582,7 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   let sub = unify_constraints eqns in
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx))
   in
-  let ctx' = List.map (fun (id, t) -> (irrev_id id, t)) ctx in
-  let result = replace_metaterm_vars ctx' (umetaterm_to_metaterm sub t) in
+  let result = replace_metaterm_vars ctx (umetaterm_to_metaterm sub t) in
     metaterm_ensure_fully_inferred result ;
     metaterm_ensure_subordination sr result ;
     check_meta_quantification result ;
@@ -593,16 +590,15 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
 
 
 let type_udef ~sr ~sign (head, body) =
-  let cids = umetaterm_extract_if is_capital_name head in
+  let cids = umetaterm_extract_if (fun id -> is_capital_name (id_to_str id))head in
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns1 = infer_constraints ~sign ~tyctx head in
   let eqns2 = infer_constraints ~sign ~tyctx body in
   let sub = unify_constraints (eqns1 @ eqns2) in
   let ctx = tyctx_to_ctx (apply_sub_tyctx sub tyctx) in
-  let ctx' = List.map (fun (id, t) -> (irrev_id id, t)) ctx in
   let (rhead, rbody) =
-    (replace_metaterm_vars ctx' (umetaterm_to_metaterm sub head),
-     replace_metaterm_vars ctx' (umetaterm_to_metaterm sub body))
+    (replace_metaterm_vars ctx (umetaterm_to_metaterm sub head),
+     replace_metaterm_vars ctx (umetaterm_to_metaterm sub body))
   in
     metaterm_ensure_fully_inferred rhead ;
     metaterm_ensure_fully_inferred rbody ;
@@ -618,6 +614,6 @@ let type_udefs ~sr ~sign udefs =
 
 let rec has_capital_head t =
   match t with
-    | UCon(_, id, _, _) -> is_capital_name id
+    | UCon(_, {contents=id}, _, _) -> is_capital_name (id_to_str id)
     | ULam _ -> false
     | UApp(_, t, _) -> has_capital_head t

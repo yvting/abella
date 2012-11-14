@@ -279,15 +279,13 @@ let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
 (* Variable Renaming *)
 
 let fresh_alist ~used ~tag tids =
-  let used = ref (List.map_fst id_to_str used) in
-  let lst = 
+  let used = ref used in
     List.map (fun (x, ty) ->
                 (* Timestamps should always be 0 for user visible variables *)
                 let (fresh, curr_used) = fresh_wrt ~ts:0 tag x ty !used in
                   used := curr_used ;
                   (x, fresh))
-      (List.map_fst id_to_str tids)
-  in List.map_fst irrev_id lst
+      tids
 
 let raise_type ~sr support ty =
   let rsupport =

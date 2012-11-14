@@ -55,10 +55,8 @@ open P
 let local_used = ref ([]:(id*term)list)
 
 let named_fresh name ts ty =
-  let name = id_to_str name in
-  let lused = List.map_fst id_to_str !local_used in
-  let (v, new_used) = fresh_wrt ~ts instantiatable name ty lused in
-    local_used := List.map_fst irrev_id new_used ;
+  let (v, new_used) = fresh_wrt ~ts instantiatable name ty (!local_used) in
+    local_used := new_used ;
     v
 
 let constant tag =

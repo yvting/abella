@@ -32,7 +32,7 @@
       (Parsing.rhs_start_pos i, Parsing.rhs_end_pos i)
 
   let predefined id ns =
-    UCon(pos 0, id, Term.fresh_tyvar (), ref ns)
+    UCon(pos 0, ref (Id (id,IrrevNs)), Term.fresh_tyvar (), ns)
 
   let binop id ns t1 t2  =
     UApp(pos 0, UApp(pos 0, predefined id ns, t1), t2)
@@ -42,8 +42,13 @@
       (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
       head args
 
-  let curr_ns = ref IrrevNs
+  let ns_stack = ref ([PsInvNs]:parse_ns list)
+  let curr_ns = (List.hd (!ns_stack))
 
+  let push_pns ns =
+    ns_stack := (ns::(!ns_stack))
+  let pop_pns =
+    ns_stack := (List.tl (!ns_stack))
 %}
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
@@ -152,21 +157,21 @@ paid:
 
 contexted_term:
   | context TURN term                    { ($1, $3) }
-  | term                                 { (predefined "nil" reas_cn_ns, $1) }
+  | term                                 { (predefined "nil" PsReasNs, $1) }
 
 context:
-  | context COMMA term                   { binop "::" reas_cn_ns $3 $1 }
+  | context COMMA term                   { binop "::" PsReasNs $3 $1 }
   | term                                 { if has_capital_head $1 then
                                              $1
                                            else
-                                             binop "::" reas_cn_ns $1
-                                               (predefined "nil" reas_cn_ns) }
+                                             binop "::" PsReasNs $1
+                                               (predefined "nil" PsReasNs) }
 
 term:
-  | term IMP term                        { binop "=>" spec_cn_ns $1 $3 }
-  | term CONS term                       { binop "::" reas_cn_ns $1 $3 }
+  | term IMP term                        { binop "=>" PsSpecNs $1 $3 }
+  | term CONS term                       { binop "::" PsReasNs $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
-                                             ULam(pos 0, id, ty, $3) }
+                                             ULam(pos 0, irrev_id id, ty, $3) }
   | exp exp_list                         { nested_app $1 $2 }
   | exp                                  { $1 }
 
@@ -175,17 +180,22 @@ exp:
                                            let right = snd (pos 3) in
                                              change_pos (left, right) $2 }
   | paid                                 { let (id, ty) = $1 in
-                                             UCon(pos 0, id, ty, ref (!curr_ns)) }
+                                             UCon(pos 0, ref (irrev_id id), ty, (curr_ns)) }
 
 exp_list:
   | exp exp_list                         { $1::$2 }
   | exp                                  { [$1] }
   | aid BSLASH term                      { let (id, ty) = $1 in
-                                             [ULam(pos 0, id, ty, $3)] }
+                                             [ULam(pos 0, irrev_id id, ty, $3)] }
 
 lpsig:
   | sig_header sig_preamble sig_body lpend
-                                         { Types.Sig($1, $2, $3) }
+                                         { 
+                                           push_pns PsSpecNs;
+                                           let t = Types.Sig($1, $2, $3) in
+                                           pop_pns;
+                                           t
+                                         }
 
 sig_header:
   | SIG id DOT                           { $2 }
@@ -201,7 +211,12 @@ sig_body:
 
 lpmod:
   | mod_header mod_preamble mod_body lpend
-                                         { Types.Mod($1, $2, $3) }
+                                         {
+                                           push_pns PsSpecNs;
+                                           let t = Types.Mod($1, $2, $3) in
+                                           pop_pns;
+                                           t
+                                         }
 
 mod_header:
   | MODULE id DOT                        { $2 }
@@ -316,7 +331,7 @@ metaterm:
   | TRUE                                 { UTrue }
   | FALSE                                { UFalse }
   | term EQ term                         { UEq($1, $3) }
-  | binder binding_list COMMA metaterm   { UBinding($1, $2, $4) }
+  | binder binding_list COMMA metaterm   { UBinding($1, (List.map_fst irrev_id $2), $4) }
   | metaterm RARROW metaterm             { UArrow($1, $3) }
   | metaterm OR metaterm                 { UOr($1, $3) }
   | metaterm AND metaterm                { UAnd($1, $3) }

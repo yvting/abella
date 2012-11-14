@@ -315,9 +315,8 @@ let import filename =
 (* Proof processing *)
 
 let query q =
-  let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
-  let ctx = List.map_fst id_to_str
-      (fresh_alist ~tag:Logic ~used:[] (List.map_fst irrev_id fv)) in
+  let fv = ids_to_fresh_tyctx (umetaterm_extract_if (fun id -> is_capital_name (id_to_str id)) q) in
+  let ctx = fresh_alist ~tag:Logic ~used:[] fv in
   match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
     | Binding(Metaterm.Exists, fv, q) ->
         let ctx = fresh_alist ~tag:Logic ~used:[] fv in

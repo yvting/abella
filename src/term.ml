@@ -265,6 +265,8 @@ let remove_trailing_numbers s =
   Str.global_replace (Str.regexp "[0-9]*$") "" s
 
 let fresh_name name used =
+  let name = id_to_str name in
+  let used = List.map_fst id_to_str used in
   let basename = remove_trailing_numbers name in
   let rec aux i =
     let name = basename ^ (string_of_int i) in
@@ -273,15 +275,17 @@ let fresh_name name used =
       else
         name
   in
+  let new_name =
     (* Try to avoid any renaming *)
     if List.mem_assoc name used then
       aux 1
     else
       name
+  in irrev_id new_name
 
 let fresh_wrt ~ts tag name ty used =
   let name = fresh_name name used in
-  let v = var tag (irrev_id name) ts ty in
+  let v = var tag name ts ty in
     (v, (name, v)::used)
 
 let term_to_var t =
