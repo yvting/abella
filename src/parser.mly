@@ -21,6 +21,7 @@
 
   open Extensions
   open Typing
+  open Type
 
   module Types = Abella_types
 
@@ -31,7 +32,7 @@
       (Parsing.rhs_start_pos i, Parsing.rhs_end_pos i)
 
   let predefined id =
-    UCon(pos 0, id, Term.fresh_tyvar ())
+    UCon(pos 0, id, fresh_tyvar ())
 
   let binop id t1 t2 =
     UApp(pos 0, UApp(pos 0, predefined id, t1), t2)
@@ -169,14 +170,14 @@ id:
 
 /* Annotated ID */
 aid:
-  | id                                   { ($1, Term.fresh_tyvar ()) }
+  | id                                   { ($1, fresh_tyvar ()) }
   | id COLON ty                          { ($1, $3) }
 
 /* Parenthesized annotated ID */
 paid:
-  | id                                   { ($1, Term.fresh_tyvar ()) }
+  | id                                   { ($1, fresh_tyvar ()) }
   | LPAREN id COLON ty RPAREN            { ($2, $4) }
-  | UNDERSCORE                           { ("_", Term.fresh_tyvar ()) }
+  | UNDERSCORE                           { ("_", fresh_tyvar ()) }
   | LPAREN UNDERSCORE COLON ty RPAREN    { ("_", $4) }
 
 contexted_term:
@@ -229,7 +230,7 @@ sig_preamble:
   |                                      { [] }
 
 sig_body:
-  | KIND id_list TYPE DOT sig_body       { Types.SKind($2) :: $5 }
+  | KIND id_list kd DOT sig_body       { Types.SKind($2, $3) :: $5 }
   | TYPE id_list ty DOT sig_body         { Types.SType($2, $3) :: $5 }
   |                                      { [] }
 
@@ -256,10 +257,22 @@ id_list:
   | id                                   { [$1] }
   | id COMMA id_list                     { $1::$3}
 
+kd:
+  | TYPE                                 { 0 }
+  | TYPE RARROW kd                       { 1 + $3 }
+
 ty:
-  | id                                   { Term.tybase $1 }
-  | ty RARROW ty                         { Term.tyarrow [$1] $3 }
+  | id tys                               { if Term.is_capital_name $1 && $2 = [] then 
+                                              fresh_tyvar () 
+                                           else 
+                                              Ty([],Tycon($1, $2))
+                                         }
+  | ty RARROW ty                         { tyarrow [$1] $3 }
   | LPAREN ty RPAREN                     { $2 }
+
+tys:
+  |                                      { [] }
+  | ty tys                               { $1 :: $2 }
 
 clause:
   | clause_head DOT                      { ($1, []) }
@@ -425,7 +438,7 @@ pure_top_command:
   | QUERY metaterm DOT                   { Types.Query($2) }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
-  | KKIND id_list TYPE DOT               { Types.Kind($2) }
+  | KKIND id_list kd DOT                 { Types.Kind($2, $3) }
   | TTYPE id_list ty DOT                 { Types.Type($2, $3) }
   | CLOSE id_list DOT                    { Types.Close($2) }
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
