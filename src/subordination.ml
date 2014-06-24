@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Type
 open Term
 open Extensions
 
@@ -24,7 +25,7 @@ type sr = string Graph.t * string list
 
 let empty = (Graph.empty, [])
 
-let head (Ty(_, h)) = h
+let head (Ty(_, h)) = aty_head h
 
 let close (graph, closed) atys =
   let closed = atys @ closed in
@@ -53,7 +54,7 @@ let add (graph, closed) a b =
 let update sr ty =
   let rec aux sr (Ty(args, target)) =
     let sr = List.fold_left aux sr args in
-      List.fold_left (fun sr ty -> add sr (head ty) target) sr args
+      List.fold_left (fun sr ty -> add sr (head ty) (aty_head target)) sr args
   in
     aux sr ty
 
@@ -63,11 +64,11 @@ let ensure (graph, _) ty =
     let target_preds = Graph.predecessors graph target in
       List.iter
         (fun aty ->
-           if not (List.mem (head aty) target_preds) then
+           if not (List.mem (head aty) (List.map aty_head target_preds)) then
              failwith
                (Printf.sprintf
                   "Type %s cannot be made subordinate to %s without explicit declaration"
-                  (head aty) target))
+                  (head aty) (aty_head target)))
         args ;
   in
     aux  ty

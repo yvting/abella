@@ -19,8 +19,7 @@
 (****************************************************************************)
 
 open Extensions
-
-type ty = Ty of ty list * string
+open Type
 
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
@@ -30,8 +29,6 @@ type var = {
   ts   : int ;
   ty   : ty ;
 }
-
-type tyctx = (id * ty) list
 
 type term = rawterm
 and rawterm =
@@ -368,12 +365,20 @@ let rec list_range a b =
 
 let abs_name = "x"
 
-let ty_to_string ty =
+let rec aty_to_string = function
+  | Tyvar(id,_) -> id
+  | Tycon(id,tys) -> 
+    let tyss = List.map ty_to_string tys in
+    let args = List.fold_right (fun ty a -> " " ^ ty ^ a) tyss "" in
+    id ^ args
+and
+ty_to_string ty =
   let rec aux nested ty =
     match ty with
-      | Ty([], bty) -> bty
+      | Ty([], bty) -> aty_to_string bty
       | Ty(tys, bty) ->
-          let res = String.concat " -> "(List.map (aux true) tys @ [bty]) in
+          let btys = aty_to_string bty in
+          let res = String.concat " -> "(List.map (aux true) tys @ [btys]) in
             if nested then parenthesis res else res
   in
     aux false ty
@@ -522,18 +527,7 @@ let has_logic_head t =
 let has_eigen_head t =
   has_head (fun v -> v.tag = Eigen) t
 
-(* Typing *)
-
-let tyarrow tys ty =
-  match ty with
-    | Ty(tys', bty) -> Ty(tys @ tys', bty)
-
-let tybase bty =
-  Ty([], bty)
-
-let oty = tybase "o"
-let olistty = tybase "olist"
-
+(* Type Checking *)
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
     | DB i -> snd (List.nth tyctx (i-1))
@@ -547,18 +541,6 @@ let rec tc (tyctx:tyctx) t =
     | Lam(idtys,t) ->
         tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)
     | _ -> assert false
-
-let is_tyvar str =
-  str.[0] = '?'
-
-let tyvar str =
-  tybase ("?" ^ str)
-
-let fresh_tyvar =
-  let count = ref 0 in
-    fun () ->
-      incr count ;
-      tyvar (string_of_int !count)
 
 
 let is_imp t = is_head_name "=>" t

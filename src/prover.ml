@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Type
 open Term
 open Typing
 open Metaterm
@@ -77,7 +78,8 @@ let add_global_consts cs =
   sign := add_consts !sign cs
 
 let close_types ids =
-  begin match List.minus ids (fst !sign) with
+  let ids' = List.map fst (fst !sign) in
+  begin match List.minus ids ids' with
     | [] -> ()
     | xs -> failwith ("Unknown type(s): " ^ (String.concat ", " xs))
   end ;

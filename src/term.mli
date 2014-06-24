@@ -18,16 +18,8 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
-(* Types *)
-
-type ty = Ty of ty list * string
-
-val tyarrow : ty list -> ty -> ty
-val tybase : string -> ty
-val oty : ty
-val olistty : ty
-
 (* Variables *)
+open Type
 
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
@@ -45,8 +37,6 @@ type term
 type ptr
 type envitem = Dum of int | Binding of term * int
 type env = envitem list
-
-type tyctx = (id * ty) list
 
 type rawterm =
   | Var of var
@@ -150,10 +140,6 @@ val nominal_tids : term list -> (id * ty) list
 val all_tids : term list -> (id * ty) list
 
 val tc : tyctx -> term -> ty
-
-val tyvar : string -> ty
-val is_tyvar : string -> bool
-val fresh_tyvar : unit -> ty
 
 val is_imp : term -> bool
 val extract_imp : term -> term * term

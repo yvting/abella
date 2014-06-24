@@ -17,10 +17,17 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Type
 open Term
+open Type
 open Metaterm
 open Extensions
 
+(** Ultility functions *)
+let iter_ty f ty =
+  List.iter f (ty_to_list ty)
+let fold_ty f s ty =
+  List.fold_left f s (ty_to_list ty)
 
 (** Untyped terms *)
 
@@ -46,7 +53,7 @@ let change_pos p t =
 
 
 let predefined id pos =
-  UCon(pos, id, Term.fresh_tyvar ())
+  UCon(pos, id, fresh_tyvar ())
 
 let binop id t1 t2 =
   let pos = (fst (get_pos t1), snd (get_pos t2)) in
@@ -77,14 +84,24 @@ type umetaterm =
 
 
 (** Type substitutions *)
+exception InstantiateConstTyvar of string
 
 type tysub = (string * ty) list
 
 let rec apply_bind_ty v ty = function
-  | Ty(tys, bty) ->
-      tyarrow
-        (List.map (apply_bind_ty v ty) tys)
-        (if v = bty then ty else Ty([], bty))
+  | Ty(tys, aty) ->
+    let ty' = 
+      match aty with
+      | Tyvar(name,Var) ->
+        if v = name then ty else Ty([],aty)
+      | Tyvar(name,Const) ->
+        if v = name then 
+          raise (InstantiateConstTyvar(name))
+        else
+          Ty([],aty)
+      | Tycon(name, tys) ->
+        Ty([], Tycon(name, List.map (apply_bind_ty v ty) tys)) in
+    tyarrow (List.map (apply_bind_ty v ty) tys) ty'
 
 let apply_sub_ty s ty =
   List.fold_left (fun ty (v,vty) -> apply_bind_ty v vty ty) ty s
@@ -104,35 +121,81 @@ let tyctx_to_nominal_ctx tyctx =
 
 (** Tables / Signatures *)
 
-type ktable = string list
+type ktable = kd list
 type pty = Poly of string list * ty
 type ctable = (string * pty) list
 type sign = ktable * ctable
 
 (** Kinds *)
 
-let add_types (ktable, ctable) ids =
+let add_types (ktable, ctable) kds =
   List.iter
-    (fun id -> if is_capital_name id then
+    (fun (id,_) -> if is_capital_name id then
        failwith ("Types may not begin with a capital letter: " ^ id))
-    ids ;
-  (ids @ ktable, ctable)
+    kds ;
+  (kds @ ktable, ctable)
 
-let lookup_type (ktable, _) id =
-  List.mem id ktable
+
+(* Check well-kindedness *)
+let get_tyvars ty =
+  fold_ty 
+    (fun ids aty ->
+      match aty with
+      | Tyvar(name,_) -> 
+        if List.mem name ids then ids else name::ids
+      | Tycon(name,tys) ->
+        ids)
+    [] ty
+
+let rec check_type_determinated = function
+  | Ty(tys, aty) -> 
+    List.iter check_type_determinated tys;
+    (match aty with
+    | Tyvar(_,_) -> ()
+    | Tycon(_,tys') -> List.iter check_type_determinated tys');
+    let ids = get_tyvars (Ty([],aty)) in
+    let ids' = List.flatten_map get_tyvars tys in
+    if List.for_all (fun id' -> List.mem id' ids) ids' then
+      ()
+    else
+      failwith ("Type variables are not determined by the target type: " ^ aty_head aty)
+  
+let check_poly_tyvars ids ty =
+  let ids' = get_tyvars ty in
+  List.iter (fun id' -> 
+    if not (List.mem id' ids) then failwith ("Internal Error: Type variables mismatch"))
+    ids';
+  List.iter (fun id -> 
+    if not (List.mem id ids') then failwith ("Internal Error: Type variables mismatch"))
+    ids
+
+let check_well_kinded (ktable, _) ty =
+  iter_ty
+    (function
+    | Tyvar(_,_) -> ()
+    | Tycon(id,tys) -> 
+      let arity = 
+        try List.assoc id ktable
+        with Not_found -> failwith ("Unknown type constructor: " ^ id)
+      in
+      if List.length tys <> arity then
+        failwith ("Type constructor is applied to a wrong number of arguments:" ^ id))
+    ty
+
+let check_poly_ids ids =
+  List.iter
+    (fun id -> if not (is_capital_name id) then
+        failwith ("Type variables must begin with a capital letter:" ^ id))
+    ids
+
+let check_poly_type sign (Poly(ids, ty)) =
+  check_poly_ids ids;
+  check_poly_tyvars ids ty;
+  check_well_kinded sign ty;
+  check_type_determinated ty
+  
 
 (** Constants *)
-
-let kind_check sign (Poly(ids, ty)) =
-  let rec aux = function
-    | Ty(tys, bty) ->
-        if List.mem bty ids || lookup_type sign bty then
-          List.iter aux tys
-        else
-          failwith ("Unknown type: " ^ bty)
-  in
-    aux ty
-
 let check_const (ktable, ctable) (id, pty) =
   begin try
     let pty' = List.assoc id ctable in
@@ -145,7 +208,7 @@ let check_const (ktable, ctable) (id, pty) =
   if is_capital_name id then
     failwith ("Constants may not begin with a capital letter: " ^ id) ;
 
-  kind_check (ktable, ctable) pty
+  check_poly_type (ktable, ctable) pty
 
 let add_poly_consts (ktable, ctable) idptys =
   List.iter (check_const (ktable, ctable)) idptys ;
@@ -168,8 +231,8 @@ let lookup_const (_, ctable) id =
 (** Pervasive signature *)
 
 let pervasive_sign =
-  (["o"; "olist"; "prop"],
-   [("pi",     Poly(["A"], tyarrow [tyarrow [tybase "A"] oty] oty)) ;
+  ([("o", 0); ("list", 1); ("prop", 0)],
+   [("pi",     Poly(["A"], tyarrow [tyarrow [tyvar "A" Var] oty] oty)) ;
     ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
     ("member", Poly([],    tyarrow [oty; olistty] propty)) ;
     ("::",     Poly([],    tyarrow [oty; olistty] olistty)) ;
@@ -193,6 +256,7 @@ type constraint_type = CFun | CArg
 type constraint_info = pos * constraint_type
 type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
+
 
 let infer_type_and_constraints ~sign tyctx t =
   let eqns = ref [] in
@@ -243,14 +307,17 @@ let constraints_to_string eqns =
 
 let occurs v ty =
   let rec aux = function
-    | Ty(tys, bty) when bty = v -> true
+    | Ty(tys, aty) when (aty_head aty) = v -> true
     | Ty(tys, _) -> List.exists aux tys
   in
     aux ty
 
 let rec contains_tyvar = function
-  | Ty(tys, bty) ->
-      is_tyvar bty || List.exists contains_tyvar tys
+  | Ty(tys, aty) ->
+    (match aty with
+    | Tyvar(bty, _) -> true
+    | Tycon(_,tys) -> List.exists contains_tyvar tys)
+    || List.exists contains_tyvar tys
 
 let tid_ensure_fully_inferred (id, ty) =
   if contains_tyvar ty then
@@ -309,16 +376,23 @@ let unify_constraints eqns =
     let ty2 = apply_sub_ty s ty2 in
       match ty1, ty2 with
         | _, _ when ty1 = ty2 -> s
-        | Ty([], bty1), _ when is_tyvar bty1 ->
+        | Ty([], Tyvar(bty1,_)), _ ->
             if occurs bty1 ty2 then
               fail s
             else
               add_sub bty1 ty2 s
-        | _, Ty([], bty2) when is_tyvar bty2 ->
+        | _, Ty([], Tyvar(bty2, _)) ->
             if occurs bty2 ty1 then
               fail s
             else
               add_sub bty2 ty1 s
+        | Ty([], Tycon(kd1,tys1)), Ty([], Tycon(kd2,tys2)) ->
+          if kd1 <> kd2 || (List.length tys1) <> (List.length tys2) then
+            fail s
+          else
+            List.fold_left2
+              (fun s ty1 ty2 -> aux s (ty1, ty2) fail)
+              s tys1 tys2
         | Ty(ty1::tys1, bty1), Ty(ty2::tys2, bty2) ->
             let s = aux s (ty1, ty2) fail in
               aux s (Ty(tys1, bty1), Ty(tys2, bty2)) fail
@@ -330,7 +404,6 @@ let unify_constraints eqns =
       (fun s -> raise (TypeInferenceFailure(p, apply_sub_ty s ty1,
                                             apply_sub_ty s ty2)))
   in
-
     List.fold_left unify_single_constraint [] eqns
 
 let uterms_extract_if test ts =
@@ -370,18 +443,13 @@ let term_ensure_subordination sr t =
   in
     aux [] t
 
-let iter_ty f ty =
-  let rec aux = function
-    | Ty(tys, bty) -> f bty; List.iter aux tys
-  in
-    aux ty
 
 let check_spec_logic_type ty =
   iter_ty
     (fun bty ->
-       if bty = "prop" then
+       if Ty([], bty) = propty then
          failwith "Cannot mention type prop in the specification logic" ;
-       if bty = "olist" then
+       if Ty([], bty) = olistty then
          failwith "Cannot mention type olist in the specification logic")
     ty
 
@@ -389,7 +457,7 @@ let check_spec_logic_quantification_type ty =
   check_spec_logic_type ty ;
   iter_ty
     (fun bty  ->
-        if bty = "o" then
+        if Ty([],bty) = oty then
           failwith "Cannot quantify over type o in the specification logic")
     ty
 
@@ -465,7 +533,7 @@ let type_uclause ~sr ~sign (head, body) =
   let get_pi_form ids body =
     (let pify id pi =
       let pos = get_pos pi in
-      let abs = ULam (pos, id, Term.fresh_tyvar (), pi) in
+      let abs = ULam (pos, id, fresh_tyvar (), pi) in
       UApp (pos, predefined "pi" pos, abs)
     in
     List.fold_right pify ids body)
@@ -582,7 +650,7 @@ let umetaterm_to_formatted_string t =
 let check_meta_logic_quantification_type ty =
   iter_ty
     (fun bty ->
-       if bty = "prop" then
+       if Ty([],bty) = propty then
          failwith "Cannot quantify over type prop")
     ty
 
@@ -640,8 +708,8 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx))
   in
   let result = replace_metaterm_vars ctx (umetaterm_to_metaterm sub t) in
-    metaterm_ensure_fully_inferred result ;
-    metaterm_ensure_subordination sr result ;
+    (* metaterm_ensure_fully_inferred result ; *)
+    (* metaterm_ensure_subordination sr result ; *)
     check_meta_quantification result ;
     result
 
@@ -657,10 +725,10 @@ let type_udef ~sr ~sign (head, body) =
     (replace_metaterm_vars ctx (umetaterm_to_metaterm sub head),
      replace_metaterm_vars ctx (umetaterm_to_metaterm sub body))
   in
-    metaterm_ensure_fully_inferred rhead ;
-    metaterm_ensure_fully_inferred rbody ;
-    metaterm_ensure_subordination sr rhead ;
-    metaterm_ensure_subordination sr rbody ;
+    (* metaterm_ensure_fully_inferred rhead ; *)
+    (* metaterm_ensure_fully_inferred rbody ; *)
+    (* metaterm_ensure_subordination sr rhead ; *)
+    (* metaterm_ensure_subordination sr rbody ; *)
     check_meta_quantification rbody ;
     (rhead, rbody)
 

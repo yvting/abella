@@ -18,6 +18,7 @@
 (****************************************************************************)
 
 open Metaterm
+open Type
 open Term
 open Typing
 open Printf
@@ -54,7 +55,7 @@ type top_command =
   | Import of string
   | Specification of string
   | Query of umetaterm
-  | Kind of id list
+  | Kind of id list * int
   | Type of id list * ty
   | Close of id list
   | SSplit of id * id list
@@ -65,7 +66,7 @@ type compiled =
   | CDefine of (id * ty) list * defs
   | CCoDefine of (id * ty) list * defs
   | CImport of string
-  | CKind of id list
+  | CKind of id list * int
   | CType of id list * ty
   | CClose of (id * id list) list
 
@@ -105,7 +106,7 @@ type any_command =
   | ACommon of common_command
 
 type sig_decl =
-  | SKind of string list
+  | SKind of string list * int
   | SType of string list * ty
 
 type lpsig =
@@ -113,6 +114,10 @@ type lpsig =
 
 type lpmod =
   | Mod of string * string list * uclause list
+
+let rec arity_to_kind n =
+  if n = 0 then "type"
+  else "type -> " ^ (arity_to_kind (n-1))
 
 let udef_to_string (head, body) =
   if body = UTrue then
@@ -167,8 +172,8 @@ let top_command_to_string tc =
         sprintf "Specification \"%s\"" filename
     | Query q ->
         sprintf "Query %s" (umetaterm_to_formatted_string q)
-    | Kind ids ->
-        sprintf "Kind %s type" (id_list_to_string ids)
+    | Kind (ids, arity) ->
+        sprintf "Kind %s %s" (id_list_to_string ids) (arity_to_kind arity)
     | Type(ids, ty) ->
         sprintf "Type %s %s" (id_list_to_string ids) (ty_to_string ty)
     | Close ids ->

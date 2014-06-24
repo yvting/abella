@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Type
 open Term
 open Metaterm
 open Prover
@@ -86,7 +87,7 @@ let teyjus_only_keywords =
    "use_sig"; "useonly"; "sigma"]
 
 let warn_on_teyjus_only_keywords (ktable, ctable) =
-  let tokens = List.unique (ktable @ List.map fst ctable) in
+  let tokens = List.unique (List.map fst ktable @ List.map fst ctable) in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
     if used_keywords <> [] then
       fprintf !out
@@ -193,7 +194,7 @@ let compile citem =
   comp_content := citem :: !comp_content
 
 let predicates (ktable, ctable) =
-  List.map fst (List.find_all (fun (_, Poly(_, Ty(_, ty))) -> ty = "o") ctable)
+  List.map fst (List.find_all (fun (_, Poly(_, Ty(_, ty))) -> Ty([],ty) = oty) ctable)
 
 let write_compilation () =
   marshal !comp_spec_sign ;
@@ -216,7 +217,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
     failwithf "Imported file makes reference to unknown types: %s"
-      (String.concat ", " missing_types)
+      (String.concat ", " (List.map fst missing_types))
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
@@ -283,9 +284,9 @@ let import filename =
                    add_defs ids CoInductive defs
              | CImport(filename) ->
                  aux filename
-             | CKind(ids) ->
+             | CKind(ids, arity) ->
                  check_noredef ids;
-                 add_global_types ids
+                 add_global_types (List.map (fun id -> (id, arity)) ids)
              | CType(ids, ty) ->
                  check_noredef ids;
                  add_global_consts (List.map (fun id -> (id, ty)) ids)
@@ -551,10 +552,10 @@ let rec process () =
               failwith ("Specification can only be read " ^
                           "at the begining of a development.")
         | Query(q) -> query q
-        | Kind(ids) ->
+        | Kind(ids, arity) ->
             check_noredef ids;
-            add_global_types ids ;
-            compile (CKind ids)
+            add_global_types (List.map (fun id -> (id, arity)) ids);
+            compile (CKind(ids, arity))
         | Type(ids, ty) ->
             check_noredef ids;
             add_global_consts (List.map (fun id -> (id, ty)) ids) ;
