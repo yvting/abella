@@ -61,10 +61,10 @@ let update sr ty =
 let ensure (graph, _) ty =
   let rec aux (Ty(args, target)) =
     List.iter aux args ;
-    let target_preds = Graph.predecessors graph target in
+    let target_preds = Graph.predecessors graph (aty_head target) in
       List.iter
         (fun aty ->
-           if not (List.mem (head aty) (List.map aty_head target_preds)) then
+           if not (List.mem (head aty) target_preds) then
              failwith
                (Printf.sprintf
                   "Type %s cannot be made subordinate to %s without explicit declaration"

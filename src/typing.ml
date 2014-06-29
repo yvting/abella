@@ -218,8 +218,16 @@ let add_poly_consts (ktable, ctable) idptys =
   List.iter (check_const (ktable, ctable)) idptys ;
   (ktable, idptys @ ctable)
 
+let find_poly_ids ty =
+  fold_ty
+    (fun ids ty ->
+        match ty with
+        | Tyvar(id,_) -> id::ids 
+        | Tycon(id,tys) -> ids)
+    [] ty
+
 let add_consts sign idtys =
-  let idptys = List.map (fun (id, ty) -> (id, Poly([], ty))) idtys in
+  let idptys = List.map (fun (id, ty) -> (id, Poly(find_poly_ids ty, ty))) idtys in
     add_poly_consts sign idptys
 
 let freshen_ty (Poly(ids, ty)) =
