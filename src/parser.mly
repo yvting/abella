@@ -262,8 +262,11 @@ kd:
   | TYPE RARROW kd                       { 1 + $3 }
 
 ty:
-  | id tys                               { if Term.is_capital_name $1 && $2 = [] then 
-                                              fresh_tyvar () 
+  | id tys                               { 
+                                           if is_abbrev_ty $1 $2 then
+                                              expand_abbrev_ty $1 $2
+                                           else if Term.is_capital_name $1 && $2 = [] then 
+                                              Ty([], Tyvar($1, Var))
                                            else 
                                               Ty([],Tycon($1, $2))
                                          }

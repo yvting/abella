@@ -130,8 +130,12 @@ type sign = ktable * ctable
 
 let add_types (ktable, ctable) kds =
   List.iter
-    (fun (id,_) -> if is_capital_name id then
-       failwith ("Types may not begin with a capital letter: " ^ id))
+    (fun (id,_) -> 
+      if is_capital_name id then
+        failwith ("Types may not begin with a capital letter: " ^ id);
+      if List.mem id (List.map fst ktable) then
+        failwith ("Type already defined: " ^ id);
+    )
     kds ;
   (kds @ ktable, ctable)
 
