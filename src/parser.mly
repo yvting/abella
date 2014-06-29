@@ -71,6 +71,14 @@
                  nominal constants: %s\nPlease rename '%s' \
                  to e.g. 'e%s', etc." ks k k
 
+  let make_atomic_ty id tys =
+    if is_abbrev_ty id tys then
+      expand_abbrev_ty id tys
+    else if Term.is_capital_name id && (tys = []) then 
+      Ty([], Tyvar(id, Var))
+    else 
+      Ty([],Tycon(id, tys))
+
 %}
 
 %token IMP IF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
@@ -84,7 +92,7 @@
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
 %token <int> NUM
-%token <string> STRINGID QSTRING
+%token <string> USTRINGID LSTRINGID QSTRING
 %token EOF
 
 /* Lower */
@@ -118,12 +126,16 @@
 
 %%
 
+stringid:
+  | USTRINGID                            { $1 }
+  | LSTRINGID                            { $1 }
+
 hyp:
-  | STRINGID                             { $1 }
+  | stringid                             { $1 }
   | UNDERSCORE                           { "_" }
 
 id:
-  | STRINGID                             { $1 }
+  | stringid                             { $1 }
   | IND                                  { "induction" }
   | INST                                 { "inst" }
   | APPLY                                { "apply" }
@@ -262,15 +274,9 @@ kd:
   | TYPE RARROW kd                       { 1 + $3 }
 
 ty:
-  | id tys                               { 
-                                           if is_abbrev_ty $1 $2 then
-                                              expand_abbrev_ty $1 $2
-                                           else if Term.is_capital_name $1 && ($2 = []) then 
-                                              Ty([], Tyvar($1, Var))
-                                           else 
-                                              Ty([],Tycon($1, $2))
-                                         }
-  | ty RARROW ty                         { tyarrow [$1] $3 }
+  | USTRINGID                            { make_atomic_ty $1 [] }
+  | LSTRINGID tys                        { make_atomic_ty $1 $2 }
+  | ty RARROW ty                         { Type.tyarrow [$1] $3 }
   | LPAREN ty RPAREN                     { $2 }
 
 tys:
@@ -350,13 +356,13 @@ pure_command:
   | CLEAR hyp_list DOT                        { Types.Clear($2) }
   | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }
-  | RENAME STRINGID TO STRINGID DOT           { Types.Rename($2, $4) }
+  | RENAME stringid TO stringid DOT           { Types.Rename($2, $4) }
   | MONOTONE hyp WITH term DOT                { Types.Monotone($2, $4) }
   | PERMUTE perm DOT                          { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
 
 hhint:
-  | STRINGID COLON                       { Some $1 }
+  | stringid COLON                       { Some $1 }
   |                                      { None }
 
 hyp_list:

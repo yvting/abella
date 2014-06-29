@@ -33,12 +33,14 @@
 let number = ['0'-'9'] +
 
 (* Initial characters for variables *)
-let ichar = ['A'-'Z' 'a'-'z' '-' '^' '>' '<' '=' '`' '\'' '?' '$' '~']
+let uchar = ['A'-'Z']
+let lchar = ['a'-'z' '-' '^' '>' '<' '=' '`' '\'' '?' '$' '~']
 
 (* Characters allowed only in the body of variables. *)
 let bchar = ['0'-'9' '_' '/' '*' '@' '+' '#' '!' '&']
 
-let name = ichar (ichar|bchar)*
+let uname = uchar (uchar|lchar|bchar)*
+let lname = lchar (uchar|lchar|bchar)*
 let blank = ' ' | '\t' | '\r'
 
 rule token = parse
@@ -139,7 +141,8 @@ rule token = parse
 
 | "_"                { UNDERSCORE }
 | number as n        { NUM (int_of_string n) }
-| name as n          { STRINGID n }
+| uname as n         { USTRINGID n }
+| lname as n         { LSTRINGID n }
 
 | eof                { EOF }
 

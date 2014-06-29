@@ -746,15 +746,6 @@ let type_udef ~sr ~sign (head, body) =
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns1 = infer_constraints ~sign ~tyctx head in
   let eqns2 = infer_constraints ~sign ~tyctx body in
-  (* let _ = Printf.eprintf "head: %s\nbody: %s\n" *)
-  (*   (umetaterm_to_string head) (umetaterm_to_string body) in *)
-  (* let _ =  *)
-  (*   Printf.eprintf "head cst:\n"; *)
-  (*   List.iter (fun str -> Printf.eprintf"\t%s\n" str) *)
-  (*     (List.map constraint_to_string eqns1); *)
-  (*   Printf.eprintf "body cst:\n"; *)
-  (*   List.iter (fun str -> Printf.eprintf"\t%s\n" str) *)
-  (*     (List.map constraint_to_string eqns2) in *)
   let sub = unify_constraints (eqns1 @ eqns2) in
   let ctx = tyctx_to_ctx (apply_sub_tyctx sub tyctx) in
   let (rhead, rbody) =
