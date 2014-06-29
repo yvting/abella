@@ -1,11 +1,11 @@
 sig lists.
 
-kind    i, list       type.
+kind    i, ilist       type.
 
-type    nl            list.
-type    cons          i -> list -> list.
+type    nl            ilist.
+type    cons          i -> ilist -> ilist.
 
-type    list          list -> o.
-type    append        list -> list -> list -> o.
-type    rev, perm     list -> list -> o.
-type    select        list -> i -> list -> o.
+type    ilist         ilist -> o.
+type    append        ilist -> ilist -> ilist -> o.
+type    rev, perm     ilist -> ilist -> o.
+type    select        ilist -> i -> ilist -> o.

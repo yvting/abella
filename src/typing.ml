@@ -196,7 +196,6 @@ let check_well_kinded (ktable, _) ty =
         try List.assoc id ktable
         with Not_found -> failwith ("Unknown type constructor: " ^ id)
       in
-      (* if (List.length tys > 0) then Printf.eprintf "(%s)\n" (ty_to_string (List.hd tys)); *)
       if List.length tys <> arity then
         failwith (Printf.sprintf "Wrong number of arguments to %s: expected %i, actual %i" id arity (List.length tys)))
     ty

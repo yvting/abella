@@ -1,7 +1,7 @@
 module lists.
 
-list nl.
-list (cons X L) :- list L.
+ilist nl.
+ilist (cons X L) :- ilist L.
 
 append nl C C.
 append (cons X A) B (cons X C) :- append A B C.
