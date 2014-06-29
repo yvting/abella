@@ -255,7 +255,7 @@ lpend:
 
 id_list:
   | id                                   { [$1] }
-  | id COMMA id_list                     { $1::$3}
+  | id COMMA id_list                     { $1::$3 }
 
 kd:
   | TYPE                                 { 0 }
@@ -265,7 +265,7 @@ ty:
   | id tys                               { 
                                            if is_abbrev_ty $1 $2 then
                                               expand_abbrev_ty $1 $2
-                                           else if Term.is_capital_name $1 && $2 = [] then 
+                                           else if Term.is_capital_name $1 && ($2 = []) then 
                                               Ty([], Tyvar($1, Var))
                                            else 
                                               Ty([],Tycon($1, $2))
@@ -274,8 +274,8 @@ ty:
   | LPAREN ty RPAREN                     { $2 }
 
 tys:
-  |                                      { [] }
   | ty tys                               { $1 :: $2 }
+  |                                      { [] }
 
 clause:
   | clause_head DOT                      { ($1, []) }
