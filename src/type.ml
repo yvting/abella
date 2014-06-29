@@ -48,13 +48,13 @@ let is_tyvar str =
   str.[0] = '?'
 
 let tyvar str mode =
-  Ty([], Tyvar("?" ^ str, mode))
+  Ty([], Tyvar(str, mode))
 
-let fresh_tyvar ?(mode=Var) =
+let fresh_tyvar =
   let count = ref 0 in
     fun () ->
       incr count ;
-      tyvar (string_of_int !count) mode
+      tyvar ("?" ^ string_of_int !count) Var
 
 type tyctx = (id * ty) list
 

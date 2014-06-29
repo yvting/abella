@@ -38,7 +38,7 @@ val propty : ty
 
 val tyvar : string -> tvmode -> ty
 val is_tyvar : string -> bool
-val fresh_tyvar : ?mode:tvmode -> unit -> ty
+val fresh_tyvar : unit -> ty
 
 type tyctx = (id * ty) list
 

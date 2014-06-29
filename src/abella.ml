@@ -62,24 +62,6 @@ let interactive_or_exit () =
       exit 1
 
 
-let position_range (p1, p2) =
-  let file = p1.Lexing.pos_fname in
-  let line = p1.Lexing.pos_lnum in
-  let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
-  let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
-    if file = "" then
-      ""
-    else
-      sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
-
-let type_inference_error (pos, ct) exp act =
-  eprintf "Typing error%s.\n%!" (position_range pos) ;
-  match ct with
-    | CArg ->
-        eprintf "Expression has type %s but is used here with type %s\n%!"
-          (ty_to_string act) (ty_to_string exp)
-    | CFun ->
-        eprintf "Expression is applied to too many arguments\n%!"
 
 let teyjus_only_keywords =
   ["closed"; "exportdef"; "import"; "infix"; "infixl"; "infixr"; "local";

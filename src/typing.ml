@@ -33,6 +33,16 @@ let fold_ty f s ty =
 
 type pos = Lexing.position * Lexing.position
 
+let position_range (p1, p2) =
+  let file = p1.Lexing.pos_fname in
+  let line = p1.Lexing.pos_lnum in
+  let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
+  let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
+    if file = "" then
+      ""
+    else
+      Printf.sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
+
 type uterm =
   | UCon of pos * string * ty
   | ULam of pos * string * ty * uterm
@@ -159,10 +169,14 @@ let rec check_type_determinated = function
     | Tycon(_,tys') -> List.iter check_type_determinated tys');
     let ids = get_tyvars (Ty([],aty)) in
     let ids' = List.flatten_map get_tyvars tys in
-    if List.for_all (fun id' -> List.mem id' ids) ids' then
-      ()
-    else
-      failwith ("Type variables are not determined by the target type: " ^ aty_head aty)
+    (match aty with
+    | Tycon("o", _) -> ()
+    | Tycon("prop", _) -> ()
+    | _ ->
+      if List.for_all (fun id' -> List.mem id' ids) ids' then
+        ()
+      else
+        failwith ("Type variables are not determined by the target type: " ^ aty_head aty))
   
 let check_poly_tyvars ids ty =
   let ids' = get_tyvars ty in
@@ -269,6 +283,10 @@ type constraint_info = pos * constraint_type
 type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
 
+let constraint_to_string (exp, act, (pos,cssty)) =
+  Printf.sprintf "At %s: Expected:%s\t Actual:%s\t Constraint:%s"
+    (position_range pos) (ty_to_string exp) (ty_to_string act)
+    (match cssty with |CFun -> "Args mismatch" |CArg -> "Types mismatch")
 
 let infer_type_and_constraints ~sign tyctx t =
   let eqns = ref [] in
@@ -692,12 +710,8 @@ let metaterm_ensure_subordination sr t =
           term_ensure_subordination sr b
       | Obj(Async obj, _) ->
           aux (async_to_member obj)
-      (* what about the sync object ? I have no idea.
-         -- Yuting *)
       | Obj(Sync obj, _) ->
           aux (async_to_member (sync_to_async obj))
-
-        (* failwith "Un implemented: subordination of sync objects" *)
       | Arrow(a, b) | Or(a, b) | And(a, b) ->
           aux a ;
           aux b
@@ -720,8 +734,8 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx))
   in
   let result = replace_metaterm_vars ctx (umetaterm_to_metaterm sub t) in
-    (* metaterm_ensure_fully_inferred result ; *)
-    (* metaterm_ensure_subordination sr result ; *)
+    metaterm_ensure_fully_inferred result ;
+    metaterm_ensure_subordination sr result ;
     check_meta_quantification result ;
     result
 
@@ -731,26 +745,37 @@ let type_udef ~sr ~sign (head, body) =
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns1 = infer_constraints ~sign ~tyctx head in
   let eqns2 = infer_constraints ~sign ~tyctx body in
+  (* let _ = Printf.eprintf "head: %s\nbody: %s\n" *)
+  (*   (umetaterm_to_string head) (umetaterm_to_string body) in *)
+  (* let _ =  *)
+  (*   Printf.eprintf "head cst:\n"; *)
+  (*   List.iter (fun str -> Printf.eprintf"\t%s\n" str) *)
+  (*     (List.map constraint_to_string eqns1); *)
+  (*   Printf.eprintf "body cst:\n"; *)
+  (*   List.iter (fun str -> Printf.eprintf"\t%s\n" str) *)
+  (*     (List.map constraint_to_string eqns2) in *)
   let sub = unify_constraints (eqns1 @ eqns2) in
   let ctx = tyctx_to_ctx (apply_sub_tyctx sub tyctx) in
   let (rhead, rbody) =
     (replace_metaterm_vars ctx (umetaterm_to_metaterm sub head),
      replace_metaterm_vars ctx (umetaterm_to_metaterm sub body))
   in
-    (* metaterm_ensure_fully_inferred rhead ; *)
-    (* metaterm_ensure_fully_inferred rbody ; *)
-    (* metaterm_ensure_subordination sr rhead ; *)
-    (* metaterm_ensure_subordination sr rbody ; *)
+    metaterm_ensure_fully_inferred rhead ;
+    metaterm_ensure_fully_inferred rbody ;
+    metaterm_ensure_subordination sr rhead ;
+    metaterm_ensure_subordination sr rbody ;
     check_meta_quantification rbody ;
     (rhead, rbody)
 
 let type_udefs ~sr ~sign udefs =
   List.map (type_udef ~sr ~sign) udefs
 
-(** Utilities *)
 
-let rec has_capital_head t =
-  match t with
-    | UCon(_, id, _) -> is_capital_name id
-    | ULam _ -> false
-    | UApp(_, t, _) -> has_capital_head t
+let type_inference_error (pos, ct) exp act =
+  Printf.eprintf "Typing error%s.\n%!" (position_range pos) ;
+  match ct with
+    | CArg ->
+        Printf.eprintf "Expression has type %s but is used here with type %s\n%!"
+          (ty_to_string act) (ty_to_string exp)
+    | CFun ->
+        Printf.eprintf "Expression is applied to too many arguments\n%!"

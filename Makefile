@@ -18,6 +18,10 @@ clean:
 byte:
 	$(OCB) src/abella.byte
 
+.PHONY: debug
+debug:
+	$(OCB) src/abella.d.byte
+
 .PHONY: gitclean
 gitclean:
 	git clean -xfd -e examples

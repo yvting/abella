@@ -166,10 +166,16 @@ let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (Parser.defs Lexer.token (Lexing.from_string str))
 
 let defs_table : defs_table = H.create 10
-let () = H.add defs_table "member"
-  (Inductive,
-   ["member"],
-   parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
+let () = 
+  try
+    H.add defs_table "member"
+      (Inductive,
+       ["member"],
+       parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
+  with 
+  | TypeInferenceFailure(ci, exp, act) ->
+    type_inference_error ci exp act
+
 
 let add_defs ids ty defs =
   List.iter
