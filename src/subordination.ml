@@ -21,22 +21,22 @@ open Type
 open Term
 open Extensions
 
-type sr = string Graph.t * string list
+type sr = Graph.t * string list
 
 let empty = (Graph.empty, [])
 
 let head (Ty(_, h)) = aty_head h
 
-let close (graph, closed) atys =
-  let closed = atys @ closed in
+let close (graph, closed) ids =
+  let closed = ids @ closed in
     List.iter
-      (fun aty ->
+      (fun id ->
          match List.minus (Graph.predecessors graph aty) closed with
            | [] -> ()
            | xs -> failwith
                (Printf.sprintf "Cannot close %s without closing %s"
                   aty (String.concat ", " xs)))
-      atys ;
+      ids ;
     (graph, closed)
 
 let query (graph, closed) a b =

@@ -154,24 +154,24 @@ let apply_sub_aty s aty =
 let apply_sub_tyctx s tyctx =
   List.map (fun (id, ty) -> (id, apply_sub_ty s ty)) tyctx
 
-let ty_eq ty1 ty2 =
-  try
-    let eqns = match_ty ty1 ty2 in
-    let vars = 
-      List.map 
-        (fun (id,ty) -> 
-          match ty with
-          | Ty([], Tyvar(id',_)) -> id'
-          | _ -> raise Not_found)
-        eqns in
-    let uniq_var var vars = 
-      List.length (List.filter (fun x -> (=) x var) vars) = 1 in
-    List.for_all
-      (fun v -> uniq_var v vars)
-      vars
-  with
-  | Not_found -> false
-  | TypeMismatch(_,_) -> false
+(* let ty_eq ty1 ty2 = *)
+(*   try *)
+(*     let eqns = match_ty ty1 ty2 in *)
+(*     let vars =  *)
+(*       List.map  *)
+(*         (fun (id,ty) ->  *)
+(*           match ty with *)
+(*           | Ty([], Tyvar(id',_)) -> id' *)
+(*           | _ -> raise Not_found) *)
+(*         eqns in *)
+(*     let uniq_var var vars =  *)
+(*       List.length (List.filter (fun x -> (=) x var) vars) = 1 in *)
+(*     List.for_all *)
+(*       (fun v -> uniq_var v vars) *)
+(*       vars *)
+(*   with *)
+(*   | Not_found -> false *)
+(*   | TypeMismatch(_,_) -> false *)
         
       
       

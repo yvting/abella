@@ -68,4 +68,4 @@ val apply_sub_aty : (id * ty) list -> aty -> aty
 val apply_sub_tyctx : (id * ty) list -> (id * ty) list -> (id * ty) list
 
 (* Comparison of types upto the renaming of variables *)
-val ty_eq : ty -> ty -> bool 
+(* val ty_eq : ty -> ty -> bool  *)
