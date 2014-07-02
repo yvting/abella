@@ -103,3 +103,20 @@ let match_ty tyb ty =
     | _, _ -> raise (TypeMismatch(tyb,ty))
   in
   aux [] tyb ty
+
+
+(** Ultility functions *)
+let iter_ty f ty =
+  List.iter f (ty_to_list ty)
+let fold_ty f s ty =
+  List.fold_left f s (ty_to_list ty)
+
+let get_tyvars ty =
+  fold_ty 
+    (fun ids aty ->
+      match aty with
+      | Tyvar(name,_) -> 
+        if List.mem name ids then ids else name::ids
+      | Tycon(name,tys) ->
+        ids)
+    [] ty

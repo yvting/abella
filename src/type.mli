@@ -50,3 +50,8 @@ val expand_abbrev_ty : id -> ty list -> ty
 
 exception TypeMismatch of ty * ty
 val match_ty : ty -> ty -> (id * ty) list
+
+val iter_ty : (aty -> unit) -> ty -> unit
+val fold_ty : ('a -> aty -> 'a) -> 'a -> ty -> 'a
+
+val get_tyvars : ty -> string list

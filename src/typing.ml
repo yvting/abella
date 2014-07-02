@@ -23,12 +23,6 @@ open Type
 open Metaterm
 open Extensions
 
-(** Ultility functions *)
-let iter_ty f ty =
-  List.iter f (ty_to_list ty)
-let fold_ty f s ty =
-  List.fold_left f s (ty_to_list ty)
-
 (** Untyped terms *)
 
 type pos = Lexing.position * Lexing.position
@@ -151,15 +145,6 @@ let add_types (ktable, ctable) kds =
 
 
 (* Check well-kindedness *)
-let get_tyvars ty =
-  fold_ty 
-    (fun ids aty ->
-      match aty with
-      | Tyvar(name,_) -> 
-        if List.mem name ids then ids else name::ids
-      | Tycon(name,tys) ->
-        ids)
-    [] ty
 
 let rec check_type_determinated = function
   | Ty(tys, aty) -> 
