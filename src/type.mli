@@ -51,7 +51,7 @@ val expand_abbrev_ty : id -> ty list -> ty
 (* Match types *)
 exception TypeMismatch of ty * ty
 val match_ty : ty -> ty -> (id * ty) list
-
+val match_aty : aty -> aty -> (id * ty) list
 
 (** Type substitutions *)
 exception InstantiateConstTyvar of string
@@ -64,4 +64,5 @@ val fold_ty : ('a -> aty -> 'a) -> 'a -> ty -> 'a
 val get_tyvars : ty -> string list
 val apply_bind_ty : id -> ty -> ty -> ty
 val apply_sub_ty : (id * ty) list -> ty -> ty
+val apply_sub_aty : (id * ty) list -> aty -> aty
 val apply_sub_tyctx : (id * ty) list -> (id * ty) list -> (id * ty) list

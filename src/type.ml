@@ -104,6 +104,8 @@ let match_ty tyb ty =
   in
   aux [] tyb ty
 
+let match_aty atyb aty = 
+  match_ty (Ty([],atyb)) (Ty([],aty))
 
 (** Ultility functions *)
 let iter_ty f ty =
@@ -143,6 +145,11 @@ let rec apply_bind_ty v ty = function
 
 let apply_sub_ty s ty =
   List.fold_left (fun ty (v,vty) -> apply_bind_ty v vty ty) ty s
+
+let apply_sub_aty s aty =
+  match (apply_sub_ty s (Ty([],aty))) with
+  | Ty([],aty') -> aty'
+  | _ -> failwith "Impossible case in: apply_sub_aty"
 
 let apply_sub_tyctx s tyctx =
   List.map (fun (id, ty) -> (id, apply_sub_ty s ty)) tyctx
