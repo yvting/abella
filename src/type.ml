@@ -120,3 +120,29 @@ let get_tyvars ty =
       | Tycon(name,tys) ->
         ids)
     [] ty
+
+(** Type substitutions *)
+exception InstantiateConstTyvar of string
+
+type tysub = (string * ty) list
+
+let rec apply_bind_ty v ty = function
+  | Ty(tys, aty) ->
+    let ty' = 
+      match aty with
+      | Tyvar(name,Var) ->
+        if v = name then ty else Ty([],aty)
+      | Tyvar(name,Const) ->
+        if v = name then 
+          raise (InstantiateConstTyvar(name))
+        else
+          Ty([],aty)
+      | Tycon(name, tys) ->
+        Ty([], Tycon(name, List.map (apply_bind_ty v ty) tys)) in
+    tyarrow (List.map (apply_bind_ty v ty) tys) ty'
+
+let apply_sub_ty s ty =
+  List.fold_left (fun ty (v,vty) -> apply_bind_ty v vty ty) ty s
+
+let apply_sub_tyctx s tyctx =
+  List.map (fun (id, ty) -> (id, apply_sub_ty s ty)) tyctx

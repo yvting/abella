@@ -44,14 +44,24 @@ type tyctx = (id * ty) list
 
 val ty_to_list : ty -> aty list
 
-(* for expanding abbreviated types *)
+(* Expanding abbreviated types *)
 val is_abbrev_ty : id -> ty list -> bool
 val expand_abbrev_ty : id -> ty list -> ty
 
+(* Match types *)
 exception TypeMismatch of ty * ty
 val match_ty : ty -> ty -> (id * ty) list
 
+
+(** Type substitutions *)
+exception InstantiateConstTyvar of string
+type tysub = (string * ty) list
+
+(* Utility functions *)
 val iter_ty : (aty -> unit) -> ty -> unit
 val fold_ty : ('a -> aty -> 'a) -> 'a -> ty -> 'a
 
 val get_tyvars : ty -> string list
+val apply_bind_ty : id -> ty -> ty -> ty
+val apply_sub_ty : (id * ty) list -> ty -> ty
+val apply_sub_tyctx : (id * ty) list -> (id * ty) list -> (id * ty) list
