@@ -25,7 +25,7 @@ type kd = string * int
 type tvmode = Var | Const
 
 type ty = Ty of ty list * aty
-and aty = 
+and aty =
 | Tyvar of string * tvmode
 | Tycon of string * ty list
 
@@ -59,7 +59,7 @@ let fresh_tyvar =
 type tyctx = (id * ty) list
 
 let rec ty_to_list = function
-  | Ty(tys,aty) -> 
+  | Ty(tys,aty) ->
     let lst =
       match aty with
       | Tyvar(_,_) -> [aty]
@@ -74,3 +74,32 @@ let expand_abbrev_ty id tys =
     olistty
   else
     failwith ("Not a abbreviated type: " ^ id)
+
+
+exception TypeMismatch of ty * ty
+
+let match_ty tyb ty =
+  let rec aux eqns tyb ty =
+    match tyb, ty with
+    | Ty([], Tyvar(idb,_)), _ ->
+      (try
+         let tyv = List.assoc idb eqns in
+         if tyv = ty then
+           eqns
+         else
+           raise (TypeMismatch (ty,tyv))
+       with
+       | Not_found -> (idb, ty)::eqns)
+    | Ty([], Tycon(idb,tysb)), Ty([], Tycon(id,tys)) ->
+      if idb <> id || List.length tysb <> List.length tys then
+        raise (TypeMismatch(tyb,ty))
+      else
+        List.fold_left2
+          (fun eqns tyb ty -> aux eqns tyb ty)
+          eqns tysb tys
+    | Ty(tyb::tysb, atyb), Ty(ty::tys, aty) ->
+      let eqns = aux eqns tyb ty in
+      aux eqns (Ty(tysb,atyb)) (Ty(tys,aty))
+    | _, _ -> raise (TypeMismatch(tyb,ty))
+  in
+  aux [] tyb ty

@@ -47,3 +47,6 @@ val ty_to_list : ty -> aty list
 (* for expanding abbreviated types *)
 val is_abbrev_ty : id -> ty list -> bool
 val expand_abbrev_ty : id -> ty list -> ty
+
+exception TypeMismatch of ty * ty
+val match_ty : ty -> ty -> (id * ty) list
