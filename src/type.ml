@@ -29,6 +29,9 @@ and aty =
 | Tyvar of string * tvmode
 | Tycon of string * ty list
 
+let ty_head = function
+  | Ty(_,aty) -> aty
+
 let aty_head = function
   | Tyvar (id,_) -> id
   | Tycon (id,_) -> id

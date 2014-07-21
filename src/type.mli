@@ -28,6 +28,7 @@ and aty =
 | Tyvar of string * tvmode
 | Tycon of string * ty list
 
+val ty_head : ty -> aty
 val aty_head : aty -> string
 
 val tyarrow : ty list -> ty -> ty

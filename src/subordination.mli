@@ -27,4 +27,4 @@ val query : sr -> ty -> ty -> bool
 val close : sr -> string list -> sr
 val update : sr -> ty -> sr
 val ensure : sr -> ty -> unit
-val subordinates : sr -> string -> string list
+val subordinates : sr -> aty -> Tygraph.preds_ty

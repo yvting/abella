@@ -21,6 +21,7 @@ open Extensions
 open Type
 
 type t = (string list * aty * aty) list
+type preds_ty = PredAll | PredList of aty list
 exception InfinitePredecessors of aty * aty
 
 let empty = []
@@ -29,7 +30,7 @@ let empty = []
    1. type variables in tyr are the same as in vars
    2. type variables in tya is a subset of vars
 *)
-let valid_arc (vars, tya, tyr) =
+let valid_arc vars tya tyr =
   let rvars = get_tyvars (Ty([],tyr)) in
   let avars = get_tyvars (Ty([],tya)) in
      List.minus avars rvars = [] 
@@ -37,14 +38,14 @@ let valid_arc (vars, tya, tyr) =
   && List.minus vars rvars = []
 
 let add_arc arcs vars tya tyr =
-  if not valid_arc (vars, tya, tyr) then
+  if not (valid_arc vars tya tyr) then
     failwith "Internal Error: adding an invalid arc to the type graph";
   if List.mem (vars, tya, tyr) arcs then 
     arcs 
   else 
     (vars, tya, tyr) :: arcs
 
-let arc_pred (vars, tya, tyr) ty =
+let arc_pred ty (vars, tya, tyr) =
   try
     let eqns = match_aty tyr ty in
     Some (apply_sub_aty eqns tya)
@@ -53,33 +54,51 @@ let arc_pred (vars, tya, tyr) ty =
     
 let direct_predecessors arcs ty =
   match ty with
-  | Tyvar(_,_) -> []
-  | Tycon(_,_) -> List.filter_map arc_pred ty
+  | Tyvar(_,_) -> failwith "direct_predecessors: impossible case"
+  | Tycon(_,_) -> List.filter_map (arc_pred ty) arcs
 
 let predecessors arcs ty =
-  let rec aux pstack acc ty =
+  let rec aux pstack accum_preds ty =
+    match ty with
+    | Tyvar(_,_) -> PredAll
+    | Tycon(_,_) ->
     (* Check if ty is a proper instantiation of some type 
        on the DFS stack. If so, the computation of predcessors
        will go into an infinite loop. *)
-    List.iter
-      (fun pty -> 
-        try let eqns = match_aty pty ty in
-            List.iter 
-              (fun (id,ty) ->
-                match ty with
-                | Ty([], Tyvar(_,_)) -> ()
-                | _ -> raise InfinitePredecessors)
-              eqns
-        with
-        | TypeMismatch(_,_) -> ())
-      pstack;
+      List.iter
+        (fun pty -> 
+          try let eqns = match_aty pty ty in
+              List.iter 
+                (fun (id,uty) ->
+                  match uty with
+                  | Ty([], Tyvar(_,_)) -> ()
+                  | _ -> raise (InfinitePredecessors(ty,pty)))
+                eqns
+          with
+          | TypeMismatch(_,_) -> ())
+        pstack;
 
-    if List.mem ty acc then
-      acc
-    else
-      List.fold_left (aux (a::pstack)) (a::acc) 
-        (direct_predecessors arcs ty) in
-  aux [] [] ty
+      match accum_preds with
+      | PredAll -> PredAll
+      | PredList acc ->
+        if List.mem ty acc then
+          accum_preds
+        else
+          let acc_pred accum_preds pty =
+            match accum_preds with
+            | PredAll -> PredAll
+            | PredList acc -> aux (ty::pstack) accum_preds pty 
+          in
+          List.fold_left acc_pred (PredList (ty::acc))
+            (direct_predecessors arcs ty)
+  in
+  aux [] (PredList []) ty
   
 let is_path arcs a b =
-  List.mem a (predecesors arcs b)
+  try
+    let preds = predecessors arcs b in
+    match preds with
+    | PredAll -> true
+    | PredList acc -> List.mem a acc
+  with
+  | InfinitePredecessors (_,_) -> false

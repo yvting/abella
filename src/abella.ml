@@ -273,18 +273,19 @@ let import filename =
                  check_noredef ids;
                  add_global_consts (List.map (fun id -> (id, ty)) ids)
              | CClose(ty_subords) ->
-                 List.iter
-                   (fun (ty, prev) ->
-                      let curr = Subordination.subordinates !sr ty in
-                        match List.minus curr prev with
-                          | [] -> ()
-                          | xs ->
-                              failwith
-                                (Printf.sprintf
-                                   "Cannot close %s since it is now subordinate to %s"
-                                   ty (String.concat ", " xs)))
-                   ty_subords ;
-                 close_types (List.map fst ty_subords))
+                 (* List.iter *)
+                 (*   (fun (ty, prev) -> *)
+                 (*      let curr = Subordination.subordinates !sr ty in *)
+                 (*        match List.minus curr prev with *)
+                 (*          | [] -> () *)
+                 (*          | xs -> *)
+                 (*              failwith *)
+                 (*                (Printf.sprintf *)
+                 (*                   "Cannot close %s since it is now subordinate to %s" *)
+                 (*                   ty (String.concat ", " xs))) *)
+                 (*   ty_subords ; *)
+                 close_types (List.map fst ty_subords)
+          )
           imp_content
     end
   in
@@ -544,10 +545,10 @@ let rec process () =
             compile (CType(ids, ty))
         | Close(ids) ->
             close_types ids ;
-            compile
-              (CClose(List.map
-                        (fun id -> (id, Subordination.subordinates !sr id))
-                        ids)) ;
+            (* compile *)
+            (*   (CClose(List.map *)
+            (*             (fun id -> (id, Subordination.subordinates !sr id)) *)
+            (*             ids)) ; *)
       end ;
       if !interactive then flush stdout ;
       if !annotate then fprintf !out "</pre>%!" ;

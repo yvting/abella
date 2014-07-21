@@ -23,11 +23,21 @@ open Type
 (* Functional implementation of infinite directed graphs on atomic
    types with reflexive and transitivie closure *)
 
+(* A type graph consists of a list of arcs.  *)
+(* An arc is triple of  *)
+(*   1) a list of names of type variables *)
+(*   2) an atomic type as the start *)
+(*   3) an atomic type as the end *)
 type t = (string list * aty * aty) list
+
+(* Result of computing predecessors *)
+type preds_ty = PredAll | PredList of aty list
+
+(* An exception for when the search of predecessors *)
+(* gets into an infinite loop *)
 exception InfinitePredecessors of aty * aty
 
 val empty : t
-val add_arc : t -> aty -> aty -> t
+val add_arc : t -> string list -> aty -> aty -> t
 val is_path : t -> aty -> aty -> bool
-val predecessors : t -> aty -> aty list
-
+val predecessors : t -> aty -> preds_ty
